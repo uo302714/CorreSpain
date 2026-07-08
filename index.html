@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CorreSpain — Spots de Running en España</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#6c5ce7">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a28;--surface3:#222236;--text:#e8e8f0;--text2:#9898b0;--accent:#6c5ce7;--accent2:#a29bfe;--green:#00b894;--orange:#fdcb6e;--red:#e17055;--blue:#74b9ff;--beach:#00cec9;--forest:#00b894;--mountain:#e17055;--urban:#fdcb6e;--mixed:#a29bfe;--radius:12px;--radius-sm:8px}
+html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+h1,h2,h3,h4{font-family:'Space Grotesk',sans-serif}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--surface)}
+::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:3px}
+.app{display:flex;height:100vh;width:100vw;position:relative}
+#map{flex:1;z-index:1}
+.sidebar{width:420px;background:var(--surface);display:flex;flex-direction:column;z-index:2;border-right:1px solid var(--surface3);transition:transform .3s}
+.sidebar-header{padding:20px;border-bottom:1px solid var(--surface3)}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.logo h1{font-size:22px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.logo span{font-size:12px;color:var(--text2);background:var(--surface3);padding:3px 8px;border-radius:20px}
+.search-box{position:relative;margin-bottom:14px}
+.search-box input{width:100%;padding:10px 14px 10px 38px;background:var(--surface2);border:1px solid var(--surface3);border-radius:var(--radius-sm);color:var(--text);font-size:14px;outline:none;transition:border .2s}
+.search-box input:focus{border-color:var(--accent)}
+.search-box svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text2)}
+.filters{display:flex;flex-wrap:wrap;gap:6px}
+.filter-btn{padding:6px 12px;border-radius:20px;border:1px solid var(--surface3);background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif}
+.filter-btn:hover{border-color:var(--accent);color:var(--text)}
+.filter-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.filter-section{margin-top:10px}
+.filter-label{font-size:11px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px}
+.spot-list{flex:1;overflow-y:auto;padding:12px}
+.spot-count{font-size:12px;color:var(--text2);padding:0 8px 10px;font-style:italic}
+.spot-card{background:var(--surface2);border-radius:var(--radius);margin-bottom:10px;cursor:pointer;transition:all .2s;overflow:hidden;border:1px solid transparent}
+.spot-card:hover{border-color:var(--accent);transform:translateY(-1px)}
+.spot-card-img{width:100%;height:140px;object-fit:cover;display:block;image-rendering:auto;background:var(--surface3)}
+.spot-card-body{padding:12px 14px}
+.spot-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.spot-card h3{font-size:14px;font-weight:600;line-height:1.3;flex:1}
+.spot-card-terrain{font-size:10px;padding:3px 8px;border-radius:12px;font-weight:600;white-space:nowrap;margin-left:8px}
+.terrain-beach{background:rgba(0,206,201,.15);color:var(--beach)}
+.terrain-forest{background:rgba(0,184,148,.15);color:var(--forest)}
+.terrain-mountain{background:rgba(225,112,85,.15);color:var(--mountain)}
+.terrain-urban{background:rgba(253,203,110,.15);color:var(--urban)}
+.terrain-mixed{background:rgba(162,155,254,.15);color:var(--mixed)}
+.spot-card-meta{display:flex;gap:12px;font-size:12px;color:var(--text2)}
+.spot-card-meta span{display:flex;align-items:center;gap:4px}
+.spot-distances{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+.dist-tag{font-size:10px;padding:2px 7px;border-radius:10px;background:var(--surface3);color:var(--text2)}
+.detail-panel{position:fixed;top:0;right:0;width:480px;height:100vh;background:var(--surface);z-index:1000;transform:translateX(100%);transition:transform .3s;overflow-y:auto;border-left:1px solid var(--surface3)}
+.detail-panel.open{transform:translateX(0)}
+.detail-img{width:100%;height:240px;object-fit:cover;display:block;image-rendering:auto;background:var(--surface3)}
+.detail-close{position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2}
+.detail-body{padding:24px}
+.detail-body h2{font-size:22px;font-weight:700;margin-bottom:4px}
+.detail-location{color:var(--text2);font-size:14px;margin-bottom:16px}
+.detail-tags{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.detail-desc{color:var(--text2);font-size:14px;line-height:1.6;margin-bottom:20px}
+.detail-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px}
+.stat-box{background:var(--surface2);padding:12px;border-radius:var(--radius-sm);text-align:center}
+.stat-box .val{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:var(--accent2)}
+.stat-box .label{font-size:11px;color:var(--text2);margin-top:2px}
+.detail-actions{display:flex;gap:10px;margin-bottom:24px}
+.btn{padding:10px 20px;border-radius:var(--radius-sm);border:none;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent2)}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--surface3)}
+.btn-secondary:hover{border-color:var(--accent)}
+.btn-fav{background:none;border:1px solid var(--surface3);color:var(--text2);font-size:20px;padding:8px 14px;border-radius:var(--radius-sm);cursor:pointer;transition:all .2s}
+.btn-fav.active{color:var(--red);border-color:var(--red)}
+.run-log-section{border-top:1px solid var(--surface3);padding-top:20px}
+.run-log-section h3{font-size:16px;margin-bottom:12px}
+.run-form{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.run-form .full{grid-column:1/-1}
+.form-group label{display:block;font-size:12px;color:var(--text2);margin-bottom:4px}
+.form-group input,.form-group select{width:100%;padding:8px 12px;background:var(--surface2);border:1px solid var(--surface3);border-radius:var(--radius-sm);color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none}
+.form-group input:focus,.form-group select:focus{border-color:var(--accent)}
+.run-history{max-height:300px;overflow-y:auto}
+.run-entry{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:6px}
+.run-entry-info{flex:1}
+.run-entry-date{font-size:12px;color:var(--text2)}
+.run-entry-stats{display:flex;gap:16px;font-size:13px}
+.run-entry-stats span{display:flex;align-items:center;gap:4px}
+.run-entry-pace{font-family:'Space Grotesk',sans-serif;font-weight:600;color:var(--green)}
+.run-entry-del{background:none;border:none;color:var(--text2);cursor:pointer;font-size:16px;padding:4px;opacity:.5;transition:opacity .2s}
+.run-entry-del:hover{opacity:1;color:var(--red)}
+.auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center}
+.auth-box{width:380px;background:var(--surface);padding:40px;border-radius:16px;border:1px solid var(--surface3)}
+.auth-box h2{font-size:26px;text-align:center;margin-bottom:4px;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.auth-box p{text-align:center;color:var(--text2);font-size:14px;margin-bottom:24px}
+.auth-box .form-group{margin-bottom:14px}
+.auth-box .btn{width:100%;padding:12px;font-size:15px;margin-top:6px}
+.auth-switch{text-align:center;margin-top:166px;margin-top:16px;font-size:13px;color:var(--text2)}
+.auth-switch a{color:var(--accent2);cursor:pointer;text-decoration:none}
+.auth-error{color:var(--red);font-size:13px;text-align:center;margin-top:8px;display:none}
+.user-bar{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid var(--surface3);background:var(--surface2)}
+.user-bar .avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+.user-bar .uname{flex:1;font-size:13px;font-weight:500}
+.user-bar .ustats{font-size:11px;color:var(--text2)}
+.user-bar button{background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px}
+.nav-tabs{display:flex;border-bottom:1px solid var(--surface3)}
+.nav-tab{flex:1;padding:10px;text-align:center;font-size:13px;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;background:none;border-top:none;border-left:none;border-right:none;font-family:'DM Sans',sans-serif}
+.nav-tab.active{color:var(--accent2);border-bottom-color:var(--accent)}
+.tab-content{display:none}
+.tab-content.active{display:block;flex:1;overflow-y:auto}
+.my-runs-panel{padding:16px}
+.my-runs-panel h3{font-size:16px;margin-bottom:4px}
+.my-runs-panel .subtitle{font-size:12px;color:var(--text2);margin-bottom:16px}
+.overall-stats{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:20px}
+.overall-stat{background:var(--surface2);padding:10px;border-radius:var(--radius-sm);text-align:center}
+.overall-stat .val{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700}
+.overall-stat .label{font-size:10px;color:var(--text2);margin-top:2px}
+.mobile-toggle{display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:999;padding:10px 24px;background:var(--accent);color:#fff;border:none;border-radius:24px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 20px rgba(108,92,231,.4);font-family:'DM Sans',sans-serif}
+.overlay-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999}
+.overlay-bg.show{display:block}
+@media(max-width:768px){
+.sidebar{position:fixed;top:0;left:0;width:100%;height:70vh;bottom:0;top:auto;border-radius:20px 20px 0 0;transform:translateY(100%);border-right:none;border-top:1px solid var(--surface3)}
+.sidebar.open{transform:translateY(0);z-index:1000}
+.mobile-toggle{display:block}
+.detail-panel{width:100%;border-radius:20px 20px 0 0;height:85vh;top:auto;bottom:0;transform:translateY(100%)}
+.detail-panel.open{transform:translateY(0)}
+}
+.leaflet-container{background:var(--bg)!important}
+.spot-popup{font-family:'DM Sans',sans-serif;min-width:200px}
+.spot-popup h4{font-family:'Space Grotesk',sans-serif;font-size:14px;margin-bottom:4px}
+.spot-popup p{font-size:12px;color:#666;margin-bottom:6px}
+.spot-popup .pop-btn{background:var(--accent);color:#fff;border:none;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif}
+.no-results{text-align:center;padding:40px 20px;color:var(--text2)}
+.no-results svg{margin-bottom:12px;opacity:.4}
+.no-results p{font-size:14px}
+</style>
+</head>
+<body>
+<div class="auth-overlay" id="authOverlay">
+<div class="auth-box">
+<h2>CorreSpain</h2>
+<p>Descubre los mejores spots de running en España</p>
+<div id="authForm">
+<div class="form-group"><label>Email</label><input type="email" id="authEmail" placeholder="tu@email.com"></div>
+<div class="form-group"><label>Contraseña</label><input type="password" id="authPass" placeholder="••••••••"></div>
+<div class="form-group" id="authNameGroup" style="display:none"><label>Nombre</label><input type="text" id="authName" placeholder="Tu nombre"></div>
+<button class="btn btn-primary" id="authBtn" onclick="handleAuth()">Iniciar sesión</button>
+<div class="auth-error" id="authError"></div>
+<div class="auth-switch">
+<span id="authSwitchText">¿No tienes cuenta?</span> <a id="authSwitchLink" onclick="toggleAuthMode()">Regístrate</a>
+</div>
+</div>
+</div>
+</div>
+<div class="app" id="mainApp" style="display:none">
+<div class="sidebar" id="sidebar">
+<div class="sidebar-header">
+<div class="logo"><h1>🏃 CorreSpain</h1><span>300 spots</span></div>
+<div class="search-box">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+<input type="text" id="searchInput" placeholder="Buscar spot, ciudad o comunidad..." oninput="filterSpots()">
+</div>
+<div class="filter-section">
+<div class="filter-label">Terreno</div>
+<div class="filters" id="terrainFilters">
+<button class="filter-btn active" data-filter="all" onclick="setFilter('terrain',this)">Todos</button>
+<button class="filter-btn" data-filter="beach" onclick="setFilter('terrain',this)">🏖 Playa</button>
+<button class="filter-btn" data-filter="forest" onclick="setFilter('terrain',this)">🌲 Bosque</button>
+<button class="filter-btn" data-filter="mountain" onclick="setFilter('terrain',this)">⛰ Montaña</button>
+<button class="filter-btn" data-filter="urban" onclick="setFilter('terrain',this)">🏙 Urbano</button>
+<button class="filter-btn" data-filter="mixed" onclick="setFilter('terrain',this)">🔀 Mixto</button>
+</div>
+</div>
+<div class="filter-section">
+<div class="filter-label">Distancia</div>
+<div class="filters" id="distFilters">
+<button class="filter-btn active" data-filter="all" onclick="setFilter('dist',this)">Todas</button>
+<button class="filter-btn" data-filter="5K" onclick="setFilter('dist',this)">5K</button>
+<button class="filter-btn" data-filter="10K" onclick="setFilter('dist',this)">10K</button>
+<button class="filter-btn" data-filter="21K" onclick="setFilter('dist',this)">Media</button>
+<button class="filter-btn" data-filter="42K" onclick="setFilter('dist',this)">Maratón</button>
+</div>
+</div>
+<div class="filter-section">
+<div class="filter-label">Dificultad</div>
+<div class="filters" id="diffFilters">
+<button class="filter-btn active" data-filter="all" onclick="setFilter('diff',this)">Todas</button>
+<button class="filter-btn" data-filter="easy" onclick="setFilter('diff',this)">Fácil</button>
+<button class="filter-btn" data-filter="moderate" onclick="setFilter('diff',this)">Moderado</button>
+<button class="filter-btn" data-filter="hard" onclick="setFilter('diff',this)">Exigente</button>
+</div>
+</div>
+</div>
+<div class="nav-tabs">
+<button class="nav-tab active" onclick="switchTab('spots',this)">Spots</button>
+<button class="nav-tab" onclick="switchTab('favs',this)">★ Favoritos</button>
+<button class="nav-tab" onclick="switchTab('runs',this)">🏃 Mis Runs</button>
+</div>
+<div class="spot-count" id="spotCount"></div>
+<div class="tab-content active" id="tab-spots"><div class="spot-list" id="spotList"></div></div>
+<div class="tab-content" id="tab-favs"><div class="spot-list" id="favList"></div></div>
+<div class="tab-content" id="tab-runs"><div class="my-runs-panel" id="runsPanel"></div></div>
+<div class="user-bar" id="userBar">
+<div class="avatar" id="userAvatar">M</div>
+<div><div class="uname" id="userName">User</div><div class="ustats" id="userRunCount">0 runs registrados</div></div>
+<button onclick="logout()" title="Cerrar sesión">⏻</button>
+</div>
+</div>
+<div id="map"></div>
+<button class="mobile-toggle" id="mobileToggle" onclick="toggleSidebar()">☰ Explorar spots</button>
+</div>
+<div class="overlay-bg" id="overlayBg" onclick="closeSidebar()"></div>
+<div class="detail-panel" id="detailPanel">
+<button class="detail-close" onclick="closeDetail()">✕</button>
+<img class="detail-img" id="detailImg" src="" alt="">
+<div class="detail-body" id="detailBody"></div>
+</div>
+<script>
+// ============ LOCAL MAPILLARY PHOTO SYSTEM ============
+function getLocalPhoto(spotId) {
+  return `fotos/spot_${spotId}.jpg`;
+}
+
+// --- Lazy-load photos via IntersectionObserver ---
+let photoObserver = null;
+function setupLazyPhotos() {
+  if (photoObserver) photoObserver.disconnect();
+  photoObserver = new IntersectionObserver((entries) => {
+    entries.forEach(async (entry) => {
+      if (!entry.isIntersecting) return;
+      const img = entry.target;
+      photoObserver.unobserve(img);
+      img.src = img.dataset.src;
+      img.onload = () => { img.classList.remove('sv-loading'); };
+      img.onerror = () => { img.style.display='none'; };
+    });
+  }, { root: document.querySelector('.spot-list'), rootMargin: '300px' });
+  document.querySelectorAll('.spot-card-img[data-src]').forEach(img => photoObserver.observe(img));
+}
+
+const terrainLabels = {beach:'Playa',forest:'Bosque',mountain:'Montaña',urban:'Urbano',mixed:'Mixto'};
+const diffLabels = {easy:'Fácil',moderate:'Moderado',hard:'Exigente'};
+// ============ 300 SPOTS DATABASE ============
+const rawSpots = [
+// === ASTURIAS (15) ===
+[1,"Paseo del Muro de San Lorenzo",43.5475,-5.6616,"beach",["5K","10K"],"easy","Paseo marítimo icónico de 3km junto a la playa de San Lorenzo. Superficie lisa, vistas al Cantábrico.","Gijón","Asturias"],
+[2,"Senda Costera Gijón-Candás",43.5610,-5.6200,"mixed",["10K","21K"],"moderate","Ruta costera espectacular entre acantilados y calas. Terreno variado con tramos de tierra y asfalto.","Gijón","Asturias"],
+[3,"Playa de Poniente",43.5390,-5.6870,"beach",["5K"],"easy","Playa urbana de 1.5km ideal para series cortas en arena. Zona menos transitada que San Lorenzo.","Gijón","Asturias"],
+[4,"Parque de los Pericones",43.5250,-5.6350,"urban",["5K"],"easy","Parque periurbano con caminos amplios y arbolados. Circuito cerrado ideal para repeticiones.","Gijón","Asturias"],
+[5,"Parque de Invierno",43.3560,-5.8590,"urban",["5K"],"easy","Gran parque urbano de Oviedo con senderos pavimentados entre juzgados y fuentes.","Oviedo","Asturias"],
+[6,"Senda del Oso",43.2280,-5.8950,"forest",["10K","21K","42K"],"moderate","Antiga vía de ferrocarril minero reconvertida en senda verde. 36km entre Tuñón y Entrago.","Proaza","Asturias"],
+[7,"Senda Fluvial del Nalón",43.3630,-5.8480,"forest",["5K","10K"],"easy","Paseo fluvial a orillas del Nalón. Terreno llano, sombra natural, ideal para rodajes suaves.","Oviedo","Asturias"],
+[8,"Ruta del Cares",43.2530,-4.8350,"mountain",["10K","21K"],"hard","La garganta divina de los Picos de Europa. 12km entre Caín y Poncebos tallados en la roca.","Cabrales","Asturias"],
+[9,"Lagos de Covadonga",43.2710,-5.0520,"mountain",["10K"],"hard","Subida legendaria a los lagos Enol y Ercina. Desnivel exigente con paisajes de alta montaña.","Cangas de Onís","Asturias"],
+[10,"Senda Costera de Llanes",43.4210,-4.7550,"mixed",["5K","10K"],"moderate","Sendero litoral que conecta playas y acantilados del oriente asturiano. Vistas increíbles.","Llanes","Asturias"],
+[11,"Playa de Torimbia",43.4450,-4.8530,"beach",["5K"],"moderate","Acceso por sendero empinado hasta una playa virgen semicircular. Arena compacta ideal.","Llanes","Asturias"],
+[12,"Parque de Ferrera",43.5570,-5.9230,"urban",["5K"],"easy","Jardín histórico en el centro de Avilés. Circuito sombreado entre árboles centenarios.","Avilés","Asturias"],
+[13,"Paseo de la Ría de Avilés",43.5590,-5.9120,"urban",["5K","10K"],"easy","Recorrido llano junto a la ría. Combina tramos urbanos con vistas industriales reconvertidas.","Avilés","Asturias"],
+[14,"Monte Naranco",43.3720,-5.8700,"mountain",["5K","10K"],"hard","Subida clásica de Oviedo. Senderos forestales con desnivel constante y vistas a la ciudad.","Oviedo","Asturias"],
+[15,"Playa de Rodiles",43.5310,-5.3870,"beach",["5K"],"easy","Playa salvaje en la desembocadura de la ría de Villaviciosa. Arena firme, entorno natural protegido.","Villaviciosa","Asturias"],
+// === GALICIA (20) ===
+[16,"Paseo Marítimo de A Coruña",43.3710,-8.4060,"beach",["5K","10K","21K"],"easy","13km de paseo marítimo, el más largo de Europa. Superficie perfecta, vistas al Atlántico.","A Coruña","Galicia"],
+[17,"Torre de Hércules Circuit",43.3860,-8.4060,"urban",["5K"],"moderate","Circuito alrededor del faro romano. Subidas suaves con vistas panorámicas a la costa.","A Coruña","Galicia"],
+[18,"Islas Cíes - Ruta del Faro",42.2310,-8.9050,"beach",["10K"],"moderate","Senderos en las islas atlánticas. Playas de arena blanca y bosque atlántico.","Vigo","Galicia"],
+[19,"Senda del Río Verdugo",42.2960,-8.5370,"forest",["5K","10K"],"easy","Paseo fluvial sombreado entre castaños y robles. Terreno suave junto al río.","Ponteareas","Galicia"],
+[20,"Parque de la Alameda Santiago",42.8740,-8.5490,"urban",["5K"],"easy","Parque histórico con vistas a la catedral. Circuito entre robles y camelias centenarias.","Santiago","Galicia"],
+[21,"Brañas do Sar",42.8680,-8.5300,"forest",["5K","10K"],"easy","Humedal restaurado al sur de Santiago. Pasarelas y senderos llanos entre vegetación atlántica.","Santiago","Galicia"],
+[22,"Paseo Fluvial del Lérez",42.4290,-8.6420,"forest",["5K","10K"],"easy","Ribera ajardinada del río Lérez a su paso por Pontevedra. Llano y sombreado.","Ponteprevenda","Galicia"],
+[23,"Senda Costera de Baiona",42.1170,-8.8490,"mixed",["5K","10K"],"moderate","Camino litoral entre playas y acantilados. Tramos de tierra con vistas a las Cíes.","Baiona","Galicia"],
+[24,"Playa de las Catedrales",43.5530,-7.1570,"beach",["5K"],"easy","Playa monumental con arcos naturales. Carrera en arena firme junto a formaciones rocosas.","Ribadeo","Galicia"],
+[25,"Cañón del Sil",42.4150,-7.7480,"mountain",["10K"],"hard","Senderos en la Ribeira Sacra con vistas verticales al río Sil. Fuerte desnivel.","Ourense","Galicia"],
+[26,"Termas de Ourense Riverside",42.3360,-7.8640,"urban",["5K"],"easy","Paseo junto al Miño pasando por las termas naturales. Superficie pavimentada.","Ourense","Galicia"],
+[27,"Praia de Samil",42.2120,-8.7720,"beach",["5K","10K"],"easy","Extensa playa urbana de Vigo. 1.7km de arena compacta ideal para rodajes.","Vigo","Galicia"],
+[28,"Senda Fluvial de Lugo",43.0110,-7.5570,"forest",["5K","10K"],"easy","Paseo ribereño del Miño a su paso por la ciudad amurallada. Llano y accesible.","Lugo","Galicia"],
+[29,"Monte Aloia",42.0950,-8.6800,"forest",["5K","10K"],"moderate","Parque natural con red de senderos forestales. Pinos y eucaliptos, vistas a Portugal.","Tui","Galicia"],
+[30,"Ruta de los Faros Costa da Morte",43.0520,-9.2150,"mixed",["21K","42K"],"hard","Ruta épica por acantilados atlánticos. 200km divididos en etapas, terreno exigente.","Malpica","Galicia"],
+[31,"Paseo do Río Sar",42.8650,-8.5380,"forest",["5K"],"easy","Sendero fluvial tranquilo conectando con el centro de Santiago. Vegetación frondosa.","Santiago","Galicia"],
+[32,"Playa de Carnota",42.8230,-9.1050,"beach",["5K","10K"],"easy","La playa más larga de Galicia, 7km de arena. Dunas y marismas en entorno virgen.","Carnota","Galicia"],
+[33,"Isla de la Toja Circuit",42.4960,-8.8390,"mixed",["5K"],"easy","Circuito perimetral de la isla termal. Paseo llano entre pinos con vistas a la ría.","O Grove","Galicia"],
+[34,"Fragas do Eume",43.4230,-8.0870,"forest",["10K"],"moderate","Bosque atlántico primario. Senderos húmedos entre helechos gigantes y castaños.","Pontedeume","Galicia"],
+[35,"Cabo Fisterra",42.8830,-9.2720,"mixed",["5K","10K"],"moderate","Fin del Camino de Santiago. Senderos costeros con vistas al fin del mundo conocido.","Fisterra","Galicia"],
+// === CANTABRIA (10) ===
+[36,"Paseo del Sardinero",43.4740,-3.7830,"beach",["5K"],"easy","Paseo marítimo elegante entre las playas del Sardinero. Vistas a la bahía.","Santander","Cantabria"],
+[37,"Parque de la Magdalena",43.4720,-3.7640,"urban",["5K"],"moderate","Península ajardinada con senderos entre pinos. Subidas suaves, vistas 360°.","Santander","Cantabria"],
+[38,"Peña Cabarga",43.3850,-3.8240,"mountain",["10K"],"hard","Subida al mirador con panorámica de toda la bahía. 568m de altitud.","Medio Cudeyo","Cantabria"],
+[39,"Senda Costera de Suances",43.4390,-4.0470,"mixed",["5K","10K"],"moderate","Camino litoral con acantilados y playas. Terreno mixto costa cantábrica.","Suances","Cantabria"],
+[40,"Vía Verde del Pas",43.2840,-3.9230,"forest",["10K","21K"],"easy","Antigua vía férrea reconvertida. Llano, sombreado, cruza valles pasiegos.","Puente Viesgo","Cantabria"],
+[41,"Picos de Europa - Fuente Dé",43.1510,-4.8010,"mountain",["5K","10K"],"hard","Senderos alpinos desde el teleférico. Terreno de alta montaña con vistas espectaculares.","Camaleño","Cantabria"],
+[42,"Paseo de Comillas",43.3870,-4.2910,"mixed",["5K"],"easy","Recorrido costero pasando por El Capricho de Gaudí. Mezcla urbana y litoral.","Comillas","Cantabria"],
+[43,"Playa de Berria",43.4590,-3.4630,"beach",["5K"],"easy","Playa de 2km en Santoña. Arena compacta ideal para series y rodajes.","Santoña","Cantabria"],
+[44,"Monte Buciero",43.4620,-3.4510,"forest",["10K"],"hard","Sendero circular por el monte costero. Bosque denso con acantilados marinos.","Santoña","Cantabria"],
+[45,"Parque Natural de Oyambre",43.3880,-4.3230,"beach",["5K","10K"],"easy","Dunas, marismas y playas vírgenes. Terreno natural variado en espacio protegido.","San Vicente","Cantabria"],
+// === PAÍS VASCO (15) ===
+[46,"Paseo de la Concha",43.3180,-1.9870,"beach",["5K"],"easy","La bahía más bonita de Europa. 2km de paseo junto a la playa con vistas a la isla.","San Sebastián","País Vasco"],
+[47,"Monte Urgull",43.3270,-1.9870,"mountain",["5K"],"moderate","Senderos forestales hasta el castillo. Vistas a la bahía desde la cima.","San Sebastián","País Vasco"],
+[48,"Monte Igueldo",43.3200,-2.0100,"mountain",["5K"],"hard","Subida exigente con panorámica completa de San Sebastián y la costa.","San Sebastián","País Vasco"],
+[49,"Paseo Nuevo San Sebastián",43.3250,-1.9930,"urban",["5K"],"easy","Paseo marítimo perimetral al pie del Urgull. Rompientes espectaculares.","San Sebastián","País Vasco"],
+[50,"Ría del Nervión Bilbao",43.2690,-2.9350,"urban",["5K","10K"],"easy","Paseo ribereño pasando por el Guggenheim. Superficie perfecta, llano.","Bilbao","País Vasco"],
+[51,"Monte Artxanda",43.2770,-2.9390,"mountain",["5K","10K"],"hard","Subida desde Bilbao con senderos forestales. Vistas completas de la villa.","Bilbao","País Vasco"],
+[52,"Anillo Verde Vitoria",42.8530,-2.6830,"urban",["5K","10K","21K"],"easy","Red de parques periurbanos conectados. 30km de itinerarios entre humedales.","Vitoria","País Vasco"],
+[53,"Humedales de Salburua",42.8500,-2.6530,"forest",["5K"],"easy","Humedal urbano con pasarelas y senderos. Observación de aves y ciervos.","Vitoria","País Vasco"],
+[54,"Flysch de Zumaia",43.3030,-2.2560,"mixed",["10K"],"moderate","Sendero costero sobre formaciones geológicas únicas. Terreno irregular.","Zumaia","País Vasco"],
+[55,"Playa de Zarautz",43.2840,-2.1710,"beach",["5K","10K"],"easy","Playa más larga del País Vasco, 2.5km. Arena firme, popular entre surfistas.","Zarautz","País Vasco"],
+[56,"Urdaibai - Bosque de Oma",43.3600,-2.6700,"forest",["5K","10K"],"moderate","Bosque pintado por Agustín Ibarrola. Senderos entre pinos con arte integrado.","Kortezubi","País Vasco"],
+[57,"Paseo de la Galea",43.3690,-3.0290,"mixed",["5K","10K"],"moderate","Acantilados de Getxo con vistas al Abra. Sendero costero bien mantenido.","Getxo","País Vasco"],
+[58,"GR 38 Ruta del Vino",42.7120,-2.5960,"forest",["10K","21K"],"moderate","Sendero histórico entre viñedos de Rioja Alavesa y montaña. Terreno variado.","Laguardia","País Vasco"],
+[59,"Monte Gorbea",43.0270,-2.7800,"mountain",["10K","21K"],"hard","Cumbre más alta del País Vasco. Senderos de montaña con hayedos y pastizales.","Zuia","País Vasco"],
+[60,"Playa de Laga",43.3750,-2.6600,"beach",["5K"],"easy","Playa en la reserva de Urdaibai. Arena dorada rodeada de acantilados verdes.","Ibarrangelu","País Vasco"],
+// === NAVARRA (10) ===
+[61,"Vuelta del Castillo Pamplona",42.8190,-1.6440,"urban",["5K"],"easy","Circuito emblemático alrededor de la Ciudadela. El spot más popular de Pamplona.","Pamplona","Navarra"],
+[62,"Parques Fluviales del Arga",42.8130,-1.6560,"forest",["5K","10K"],"easy","Red de senderos junto al río Arga. Sombra natural, terreno llano.","Pamplona","Navarra"],
+[63,"Parque de la Taconera",42.8200,-1.6500,"urban",["5K"],"easy","Jardín histórico en el casco viejo. Circuito compacto entre fosos medievales.","Pamplona","Navarra"],
+[64,"Bardenas Reales",42.2240,-1.5430,"mixed",["10K","21K"],"hard","Semidesierto con paisaje lunar. Senderos entre bardenales y mesetas erosionadas.","Tudela","Navarra"],
+[65,"Selva de Irati",42.9780,-1.0770,"forest",["10K","21K"],"moderate","Segundo hayedo más grande de Europa. Senderos entre hayas centenarias.","Ochagavía","Navarra"],
+[66,"Nacedero del Urederra",42.8060,-2.0850,"forest",["10K"],"moderate","Cascadas de agua turquesa en la sierra de Urbasa. Sendero espectacular.","Baquedano","Navarra"],
+[67,"Foz de Lumbier",42.6490,-1.3090,"mountain",["5K"],"moderate","Desfiladero del río Irati con paredes verticales. Sendero sobre antigua vía.","Lumbier","Navarra"],
+[68,"Camino de Santiago Navarro",42.9310,-1.5680,"mixed",["21K","42K"],"moderate","Tramo histórico desde Roncesvalles. Caminos rurales entre pueblos medievales.","Roncesvalles","Navarra"],
+[69,"Embalse de Alloz",42.7540,-1.9770,"mixed",["10K"],"easy","Circuito perimetral del embalse. Terreno suave con vistas al agua.","Yerri","Navarra"],
+[70,"Sierra de Aralar",42.9650,-1.9520,"mountain",["10K"],"hard","Senderos de media montaña entre pastizales y hayedos. Zona de pastor.","Uharte-Arakil","Navarra"],
+// === LA RIOJA (8) ===
+[71,"Parque del Ebro Logroño",42.4640,-2.4460,"urban",["5K","10K"],"easy","Paseo ribereño junto al Ebro. El circuito más popular de la capital riojana.","Logroño","La Rioja"],
+[72,"Pantano de La Grajera",42.4310,-2.4720,"mixed",["5K","10K"],"easy","Circuito alrededor del embalse. Mezcla de viñedos y agua en zona periurbana.","Logroño","La Rioja"],
+[73,"Sierra de Cebollera",42.0680,-2.6320,"mountain",["10K","21K"],"hard","Parque natural de alta montaña riojana. Senderos entre pinares y lagunas glaciares.","Villoslada","La Rioja"],
+[74,"Viñedos de Haro",42.5760,-2.8430,"mixed",["5K","10K"],"easy","Caminos rurales entre bodegas centenarias. Paisaje de viñedos ondulantes.","Haro","La Rioja"],
+[75,"Valle del Najerilla",42.3270,-2.7270,"forest",["10K"],"moderate","Sendero fluvial entre choperas. Terreno suave, sombra abundante.","Nájera","La Rioja"],
+[76,"Camino de Santiago Riojano",42.4350,-2.6900,"mixed",["21K","42K"],"moderate","Tramo riojano del Camino entre viñedos y pueblos. Terreno variado.","Navarrete","La Rioja"],
+[77,"Parque de la Ribera Logroño",42.4660,-2.4390,"urban",["5K"],"easy","Zona verde junto al casco antiguo. Circuito compacto y bien pavimentado.","Logroño","La Rioja"],
+[78,"Peñas de Iregua",42.2960,-2.5050,"mountain",["5K","10K"],"hard","Formaciones rocosas con senderos panorámicos. Vistas al valle del Iregua.","Islallana","La Rioja"],
+// === CASTILLA Y LEÓN (20) ===
+[79,"Ribera del Tormes Salamanca",40.9580,-5.6660,"urban",["5K","10K"],"easy","Paseo ribereño con vistas a la catedral y el puente romano. Llano y accesible.","Salamanca","Castilla y León"],
+[80,"Parque de la Aldehuela",40.9520,-5.6490,"urban",["5K"],"easy","Parque fluvial amplio. Circuito entre choperas a orillas del Tormes.","Salamanca","Castilla y León"],
+[81,"Ribera del Pisuerga",41.6490,-4.7230,"urban",["5K","10K"],"easy","Paseo fluvial de Valladolid. Bien pavimentado, conecta varios parques.","Valladolid","Castilla y León"],
+[82,"Campo Grande Valladolid",41.6480,-4.7280,"urban",["5K"],"easy","Gran parque urbano con pavos reales. Circuito clásico del running vallisoletano.","Valladolid","Castilla y León"],
+[83,"Ribera del Bernesga",42.5990,-5.5710,"urban",["5K","10K"],"easy","Paseo fluvial de León con vistas a la catedral. Superficie pavimentada.","León","Castilla y León"],
+[84,"Camino de Santiago Leonés",42.5980,-5.5640,"mixed",["21K","42K"],"moderate","Tramo meseteño del Camino. Horizontes amplios, terreno llano.","León","Castilla y León"],
+[85,"Ribera del Eresma Segovia",40.9400,-4.1190,"forest",["5K","10K"],"easy","Sendero fluvial bajo el Alcázar. Vegetación de ribera, zona tranquila.","Segovia","Castilla y León"],
+[86,"Ruta de los Molinos Segovia",40.9470,-4.1020,"mixed",["5K"],"moderate","Circuito pasando por molinos históricos junto al Eresma. Empedrado y tierra.","Segovia","Castilla y León"],
+[87,"Paseo del Espolón Burgos",42.3390,-3.7020,"urban",["5K"],"easy","Paseo principal de Burgos junto al Arlanzón. Punto de partida de muchos runners.","Burgos","Castilla y León"],
+[88,"Sendero del Arlanzón",42.3420,-3.6950,"forest",["5K","10K"],"easy","Senda fluvial aguas arriba. Choperas y sauces, terreno suave.","Burgos","Castilla y León"],
+[89,"Ribera del Duero Soria",41.7640,-2.4640,"forest",["5K","10K"],"easy","Paseo junto al Duero naciente. Alamedas y choperas machadianas.","Soria","Castilla y León"],
+[90,"Dehesa Soriana",41.7590,-2.4490,"forest",["5K"],"easy","Bosque urbano de encinas. Circuito sombreado, suelo de tierra compacta.","Soria","Castilla y León"],
+[91,"Canal de Castilla Palencia",42.0130,-4.5300,"mixed",["10K","21K","42K"],"easy","Camino de sirga del canal histórico. Completamente llano, 207km totales.","Palencia","Castilla y León"],
+[92,"Cañón del Río Lobos",41.7270,-3.0600,"mountain",["10K"],"moderate","Desfiladero con buitres leonados. Sendero junto al río entre paredes calizas.","Ucero","Castilla y León"],
+[93,"Sierra de Gredos - Plataforma",40.2560,-5.2830,"mountain",["10K"],"hard","Acceso a la Laguna Grande. Sendero alpino con fuerte desnivel.","Navalperal","Castilla y León"],
+[94,"Las Médulas",42.4590,-6.7630,"mountain",["5K","10K"],"moderate","Paisaje rojizo de antiguas minas romanas. Senderos entre castaños y formaciones.","Carucedo","Castilla y León"],
+[95,"Lago de Sanabria",42.1130,-6.7330,"mountain",["10K"],"moderate","Circuito del mayor lago glaciar de la península. Senderos forestales.","Galende","Castilla y León"],
+[96,"Parque de la Isla Burgos",42.3430,-3.6860,"urban",["5K"],"easy","Jardín romántico junto al Arlanzón. Circuito tranquilo entre arboledas.","Burgos","Castilla y León"],
+[97,"Monte Abantos El Escorial",40.5740,-4.1490,"mountain",["10K"],"hard","Subida al monte con vistas al monasterio. Pinares y senderos de montaña.","San Lorenzo","Castilla y León"],
+[98,"Ribera del Tera Zamora",41.5040,-5.7440,"forest",["5K","10K"],"easy","Paseo fluvial tranquilo. Vegetación de ribera, ambiente rural.","Zamora","Castilla y León"]
+];
+// === MADRID (20) ===
+rawSpots.push(
+[99,"Madrid Río",40.3950,-3.7170,"urban",["5K","10K","21K"],"easy","Parque lineal junto al Manzanares. 10km de circuitos pavimentados. El spot estrella de Madrid.","Madrid","Madrid"],
+[100,"Casa de Campo",40.4170,-3.7490,"forest",["5K","10K","21K","42K"],"moderate","El mayor parque de Madrid. Red extensa de caminos de tierra entre encinas.","Madrid","Madrid"],
+[101,"Parque del Retiro",40.4153,-3.6845,"urban",["5K","10K"],"easy","Circuito exterior de 4.5km alrededor del parque. Superficie mixta asfalto/tierra.","Madrid","Madrid"],
+[102,"Anillo Verde Ciclista",40.4300,-3.6700,"urban",["10K","21K","42K"],"easy","64km de carril que rodea Madrid. Tramos seleccionables, completamente llano.","Madrid","Madrid"],
+[103,"Dehesa de la Villa",40.4530,-3.7200,"forest",["5K"],"moderate","Pinar urbano con senderos de tierra. Cuestas suaves, sombra garantizada.","Madrid","Madrid"],
+[104,"Parque Juan Carlos I",40.4650,-3.6100,"urban",["5K","10K"],"easy","Parque moderno con lago y circuitos amplios. Superficie perfecta para tempo.","Madrid","Madrid"],
+[105,"Monte El Pardo",40.5200,-3.7700,"forest",["10K","21K"],"moderate","Bosque mediterráneo protegido al norte de Madrid. Encinas y ciervos.","Madrid","Madrid"],
+[106,"Senda Real",40.4900,-3.7500,"mixed",["21K","42K"],"moderate","Ruta que conecta Monte El Pardo con Casa de Campo. 16km de naturaleza urbana.","Madrid","Madrid"],
+[107,"Parque de Valdebebas",40.4930,-3.6080,"urban",["5K","10K"],"easy","Parque forestal nuevo al noreste. Amplios caminos, zona poco masificada.","Madrid","Madrid"],
+[108,"Parque Lineal del Manzanares",40.3750,-3.6950,"mixed",["10K","21K"],"easy","Extensión sur de Madrid Río. Terreno más natural, ribera del Manzanares.","Madrid","Madrid"],
+[109,"Parque de Enrique Tierno Galván",40.3920,-3.6890,"urban",["5K"],"easy","Parque compacto con planetario. Circuito corto ideal para series.","Madrid","Madrid"],
+[110,"Cerro del Tío Pío",40.3870,-3.6510,"urban",["5K"],"moderate","Las siete tetas de Vallecas. Subidas cortas con vistas panorámicas a Madrid.","Madrid","Madrid"],
+[111,"Parque Forestal de Valdebernardo",40.3780,-3.6120,"forest",["5K"],"easy","Bosque periurbano en Vicálvaro. Senderos tranquilos entre pinos.","Madrid","Madrid"],
+[112,"Canal de Isabel II Senda",40.4860,-3.6900,"urban",["5K","10K"],"easy","Paseo arbolado junto al canal histórico. Rectilíneo y sombreado.","Madrid","Madrid"],
+[113,"Sierra de Guadarrama - Cercedilla",40.7420,-4.0550,"mountain",["10K","21K"],"hard","Senderos de montaña desde la estación. Pinares de Valsaín y cumbres.","Cercedilla","Madrid"],
+[114,"Embalse de Santillana",40.7280,-3.8310,"mixed",["10K","21K"],"moderate","Circuito alrededor del embalse en Manzanares el Real. Vistas a La Pedriza.","Manzanares Real","Madrid"],
+[115,"Parque Regional del Sureste",40.3200,-3.5400,"mixed",["10K"],"easy","Lagunas y cortados yesíferos. Senderos llanos en paisaje estepario.","Rivas","Madrid"],
+[116,"Jardín del Capricho",40.4610,-3.6120,"urban",["5K"],"easy","Jardín histórico oculto. Circuito reducido pero encantador entre folies.","Madrid","Madrid"],
+[117,"Bosque de la Herrería",40.5870,-4.1350,"forest",["5K","10K"],"moderate","Bosque frondoso junto a El Escorial. Senderos de tierra entre robles y fresnos.","San Lorenzo","Madrid"],
+[118,"Parque Europa Torrejón",40.4620,-3.4670,"urban",["5K"],"easy","Réplicas de monumentos europeos. Circuito amplio y bien mantenido.","Torrejón","Madrid"]);
+// === CATALUÑA (30) ===
+rawSpots.push(
+[119,"Paseo Marítimo Barceloneta",41.3780,2.1920,"beach",["5K","10K"],"easy","Paseo junto a la playa más icónica de Barcelona. Superficie perfecta, ambiente vibrante.","Barcelona","Cataluña"],
+[120,"Carretera de les Aigües",41.4120,2.1280,"mountain",["5K","10K","21K"],"easy","Camino horizontal en la falda de Collserola. Vistas a toda Barcelona, sin apenas desnivel.","Barcelona","Cataluña"],
+[121,"Montjuïc",41.3640,2.1590,"mountain",["5K","10K"],"moderate","Red de senderos y escaleras olímpicas. Subidas con vistas al puerto y la ciudad.","Barcelona","Cataluña"],
+[122,"Parc del Fòrum",41.4110,2.2290,"urban",["5K"],"easy","Explanada amplia junto al mar. Superficie lisa, zona abierta y ventilada.","Barcelona","Cataluña"],
+[123,"Diagonal Mar",41.4090,2.2180,"urban",["5K"],"easy","Parque contemporáneo con lago. Circuito entre esculturas y jardines modernos.","Barcelona","Cataluña"],
+[124,"Parc de Collserola",41.4270,2.0990,"forest",["10K","21K","42K"],"hard","8.000 hectáreas de bosque mediterráneo. Red infinita de senderos técnicos.","Barcelona","Cataluña"],
+[125,"Tibidabo Trails",41.4220,2.1190,"mountain",["5K","10K"],"hard","Senderos forestales hasta la cima. Desnivel constante con vistas premium.","Barcelona","Cataluña"],
+[126,"Parc de la Ciutadella",41.3880,2.1870,"urban",["5K"],"easy","Parque central con lago y fuentes. El circuito matinal más popular del centro.","Barcelona","Cataluña"],
+[127,"Canal Olímpic Castelldefels",41.2970,2.0440,"urban",["5K","10K"],"easy","Circuito llano junto al canal de remo olímpico. Superficie perfecta.","Castelldefels","Cataluña"],
+[128,"Delta del Llobregat",41.3190,2.0750,"mixed",["10K"],"easy","Humedal costero con senderos llanos. Observación de aves, ambiente natural.","El Prat","Cataluña"],
+[129,"Camí de Ronda Costa Brava",41.7970,3.0340,"mixed",["5K","10K","21K"],"moderate","Sendero litoral histórico entre calas. Terreno irregular con vistas excepcionales.","Lloret de Mar","Cataluña"],
+[130,"GR 92 Cap de Creus",42.3190,3.3160,"mixed",["10K","21K"],"hard","Sendero costero hasta el punto más oriental de la península. Paisaje volcánico.","Cadaqués","Cataluña"],
+[131,"Paseo de la Muralla Girona",41.9870,2.8260,"urban",["5K"],"easy","Circuito por las murallas medievales. Subidas cortas con vistas al Onyar.","Girona","Cataluña"],
+[132,"Devesa de Girona",41.9810,2.8180,"forest",["5K"],"easy","El parque urbano más grande de Cataluña. Plátanos centenarios, senderos amplios.","Girona","Cataluña"],
+[133,"Paseo Marítimo Tarragona",41.1100,1.2500,"beach",["5K","10K"],"easy","Paseo junto a la Platja del Miracle bajo el anfiteatro romano.","Tarragona","Cataluña"],
+[134,"Delta del Ebro",40.6620,0.8690,"mixed",["10K","21K"],"easy","Senderos planos entre arrozales y lagunas. Paisaje único, sin desnivel.","Deltebre","Cataluña"],
+[135,"Serra del Montsant",41.2930,0.8460,"mountain",["10K","21K"],"hard","Paisaje de conglomerados rocosos. Senderos técnicos en sierra prepirenaica.","La Morera","Cataluña"],
+[136,"Aigüestortes",42.5540,0.9600,"mountain",["10K"],"hard","Parque nacional pirenaico. Lagos glaciares y senderos de alta montaña.","Espot","Cataluña"],
+[137,"Playa de Sitges",41.2350,1.8070,"beach",["5K"],"easy","Paseo marítimo con encanto bohemio. Arena compacta, ambiente mediterráneo.","Sitges","Cataluña"],
+[138,"Montserrat",41.5930,1.8380,"mountain",["10K"],"hard","Montaña sagrada con formaciones rocosas únicas. Senderos de media montaña.","Montserrat","Cataluña"],
+[139,"Parc Natural del Garraf",41.2700,1.8900,"mixed",["10K"],"moderate","Macizo calcáreo junto al mar. Red de senderos entre matorral mediterráneo.","Sitges","Cataluña"],
+[140,"Via Verda del Carrilet",41.9550,2.7640,"mixed",["21K","42K"],"easy","54km de antigua vía férrea entre Girona y Olot. Llana, sombreada.","Girona","Cataluña"],
+[141,"Parc del Turonet",41.3980,2.1290,"urban",["5K"],"moderate","Parque en las colinas de Sarrià. Senderos entre jardines con vistas.","Barcelona","Cataluña"],
+[142,"Cala Montgó - L'Escala",42.1180,3.1650,"beach",["5K"],"moderate","Sendero costero entre calas de la Costa Brava. Terreno rocoso con playas.","L'Escala","Cataluña"],
+[143,"Bosc de Can Deu Sabadell",41.5580,2.1200,"forest",["5K","10K"],"easy","Bosque periurbano con encinas y pinos. Red de senderos señalizados.","Sabadell","Cataluña"],
+[144,"Passeig de la Mina Terrassa",41.5690,2.0080,"urban",["5K"],"easy","Paseo arbolado histórico. Superficie lisa, circuito popular local.","Terrassa","Cataluña"],
+[145,"Playa de la Pineda",41.0780,1.1770,"beach",["5K","10K"],"easy","Playa amplia de arena fina al sur de Tarragona. Paseo marítimo extenso.","Vila-seca","Cataluña"],
+[146,"Serra de l'Albera",42.4190,2.9570,"mountain",["10K"],"moderate","Frontera natural con Francia. Senderos entre alcornoques y dólmenes.","La Jonquera","Cataluña"],
+[147,"Parc de Vallparadís",41.5640,2.0120,"urban",["5K"],"easy","Parque lineal en un torrente urbano de Terrassa. Pasarelas y caminos.","Terrassa","Cataluña"],
+[148,"Costa Daurada Cambrils",41.0690,1.0600,"beach",["5K","10K"],"easy","Paseo marítimo del puerto pesquero. Llano, vistas mediterráneas.","Cambrils","Cataluña"]);
+// === COMUNIDAD VALENCIANA (25) ===
+rawSpots.push(
+[149,"Jardín del Turia",39.4780,-0.3720,"urban",["5K","10K","21K"],"easy","9km de antiguo cauce convertido en parque. El circuito más popular de Valencia.","Valencia","C. Valenciana"],
+[150,"Paseo Marítimo Malvarrosa",39.4780,-0.3260,"beach",["5K","10K"],"easy","Playa urbana con paseo amplio. Arena compacta y ambiente mediterráneo.","Valencia","C. Valenciana"],
+[151,"Albufera de Valencia",39.3350,-0.3500,"mixed",["10K","21K"],"easy","Senderos entre arrozales y el lago. Terreno completamente llano.","Valencia","C. Valenciana"],
+[152,"Parque Natural de la Devesa",39.3250,-0.3200,"forest",["5K","10K"],"easy","Bosque dunar entre la Albufera y el mar. Pinos y dunas, suelo de arena.","Valencia","C. Valenciana"],
+[153,"Parque de Cabecera",39.4760,-0.3960,"urban",["5K"],"easy","Extensión oeste del Turia con lago. Circuito arbolado, ideal para series.","Valencia","C. Valenciana"],
+[154,"Serra Gelada Benidorm",38.5420,-0.0830,"mountain",["5K","10K"],"moderate","Parque natural sobre acantilados. Vistas al skyline de Benidorm y la isla.","Benidorm","C. Valenciana"],
+[155,"Paseo Marítimo Benidorm",38.5340,-0.1200,"beach",["5K"],"easy","Paseo entre la Playa de Levante y Poniente. Superficie perfecta.","Benidorm","C. Valenciana"],
+[156,"Cap de l'Horta Alicante",38.3490,-0.4060,"mixed",["5K","10K"],"moderate","Sendero costero con calas y acantilados. Vistas al Mediterráneo.","Alicante","C. Valenciana"],
+[157,"Explanada de España",38.3450,-0.4840,"urban",["5K"],"easy","Paseo emblemático de Alicante junto al puerto. Superficie de mosaico.","Alicante","C. Valenciana"],
+[158,"Parque El Palmeral Alicante",38.3490,-0.4730,"urban",["5K"],"easy","Jardín de palmeras junto al mar. Circuito sombreado y compacto.","Alicante","C. Valenciana"],
+[159,"Sierra de Bernia",38.6700,-0.0560,"mountain",["10K"],"hard","Cresta rocosa con vistas a dos mares. Sendero exigente con paso de túnel.","Altea","C. Valenciana"],
+[160,"Desert de les Palmes",40.0680,0.0500,"forest",["5K","10K"],"moderate","Parque natural con ruinas carmelitas. Senderos entre palmitos y carrascas.","Benicàssim","C. Valenciana"],
+[161,"Playa Norte Peñíscola",40.3710,0.4120,"beach",["5K","10K"],"easy","5km de playa al norte del castillo templario. Arena firme.","Peñíscola","C. Valenciana"],
+[162,"Vía Verde Ojos Negros",39.8500,-0.7500,"mixed",["21K","42K"],"easy","160km de antigua vía minera. El más largo de España, completamente llano.","Valencia","C. Valenciana"],
+[163,"Parque Natural del Montgó",38.7960,0.1600,"mountain",["10K"],"hard","Montaña costera de 753m. Senderos de media montaña con vistas al cabo.","Dénia","C. Valenciana"],
+[164,"Platja de l'Arenal Jávea",38.7590,0.1820,"beach",["5K"],"easy","Playa de arena en Jávea con paseo. Ambiente tranquilo, vistas al Montgó.","Jávea","C. Valenciana"],
+[165,"Río Turia Valencia Sur",39.4690,-0.3830,"urban",["5K","10K"],"easy","Tramo sur del Turia con Bioparc. Menos transitado, más natural.","Valencia","C. Valenciana"],
+[166,"Font Roja Alcoy",38.6670,-0.5430,"forest",["5K","10K"],"moderate","Bosque mediterráneo de montaña. Carrascal denso con senderos frescos.","Alcoy","C. Valenciana"],
+[167,"Clot de Galvany Elche",38.2510,-0.5110,"mixed",["5K"],"easy","Humedal costero con senderos entre dunas y lagunas. Avifauna.","Elche","C. Valenciana"],
+[168,"Palmeral de Elche",38.2660,-0.6960,"urban",["5K"],"easy","Patrimonio UNESCO. Circuito entre palmeras datileras milenarias.","Elche","C. Valenciana"],
+[169,"Sierra de Espadán",39.8790,-0.3550,"mountain",["10K","21K"],"hard","Macizo de rodeno con alcornoques. Senderos de montaña media.","Eslida","C. Valenciana"],
+[170,"Playa de Gandía",38.9930,-0.1630,"beach",["5K","10K"],"easy","Extensa playa con paseo marítimo renovado. Arena compacta.","Gandía","C. Valenciana"],
+[171,"Parque Natural de las Salinas Torrevieja",37.9780,-0.7020,"mixed",["10K"],"easy","Lagunas rosas y salinas. Senderos llanos con paisaje único.","Torrevieja","C. Valenciana"],
+[172,"Greenway Xurra",39.5100,-0.3700,"urban",["5K","10K"],"easy","Vía verde urbana al norte de Valencia. Antigua vía de tren reconvertida.","Valencia","C. Valenciana"],
+[173,"Serra Calderona",39.6530,-0.4200,"mountain",["10K","21K"],"moderate","Sierra entre Valencia y Castellón. Red de senderos en pinar mediterráneo.","Náquera","C. Valenciana"]);
+// === ANDALUCÍA (40) ===
+rawSpots.push(
+[174,"Parque de María Luisa",37.3720,-5.9870,"urban",["5K"],"easy","Jardín histórico de la Expo del 29. Circuito entre fuentes y glorietas.","Sevilla","Andalucía"],
+[175,"Alamillo Sevilla",37.4120,-5.9970,"urban",["5K","10K"],"easy","Parque extenso junto al Guadalquivir. Caminos amplios, zona de running popular.","Sevilla","Andalucía"],
+[176,"Canal de Alfonso XIII",37.3630,-6.0020,"urban",["5K","10K"],"easy","Paseo rectilíneo junto al canal. Completamente llano, popular para tempo.","Sevilla","Andalucía"],
+[177,"Muelle de la Sal - Triana",37.3830,-6.0020,"urban",["5K"],"easy","Ribera del Guadalquivir entre Triana y el centro. Vistas a la Torre del Oro.","Sevilla","Andalucía"],
+[178,"Paseo Marítimo Málaga",36.7130,-4.4200,"beach",["5K","10K"],"easy","Paseo renovado desde La Malagueta al puerto. Superficie perfecta.","Málaga","Andalucía"],
+[179,"Montes de Málaga",36.7650,-4.3800,"forest",["10K","21K"],"hard","Parque natural con senderos entre pinos. Subidas exigentes con vistas al mar.","Málaga","Andalucía"],
+[180,"Desembocadura del Guadalhorce",36.6890,-4.4550,"mixed",["5K","10K"],"easy","Paraje natural con senderos entre lagunas. Avifauna y ambiente tranquilo.","Málaga","Andalucía"],
+[181,"Playa de la Barrosa",36.3810,-6.1910,"beach",["5K","10K","21K"],"easy","8km de playa virgen en Chiclana. Arena firme perfecta para tiradas largas.","Chiclana","Andalucía"],
+[182,"Paseo Marítimo Cádiz",36.5270,-6.2920,"beach",["5K","10K"],"easy","Paseo entre la Caleta y Cortadura. Vistas atlánticas, viento frecuente.","Cádiz","Andalucía"],
+[183,"Playa de Cortadura",36.5070,-6.2720,"beach",["5K","10K"],"easy","Playa semi-urbana con dunas. 4km de arena compacta, menos transitada.","Cádiz","Andalucía"],
+[184,"Carrera del Darro Granada",37.1780,-3.5900,"urban",["5K"],"moderate","Paseo junto al río con vistas a la Alhambra. Empedrado, tramos de cuesta.","Granada","Andalucía"],
+[185,"Paseo de la Alhambra",37.1770,-3.5870,"forest",["5K"],"moderate","Bosque de la Alhambra con senderos entre olmos centenarios. Sombra y frescor.","Granada","Andalucía"],
+[186,"Sierra Nevada Base",37.0960,-3.3960,"mountain",["10K","21K"],"hard","Senderos desde Pradollano. Altitud 2.100m+, terreno alpino.","Monachil","Andalucía"],
+[187,"Vega de Granada",37.1600,-3.6200,"mixed",["10K","21K"],"easy","Caminos rurales entre la vega fértil. Llano, vistas a Sierra Nevada.","Granada","Andalucía"],
+[188,"Ribera del Guadalquivir Córdoba",37.8870,-4.7770,"urban",["5K","10K"],"easy","Paseo junto al río con vistas al puente romano y la mezquita.","Córdoba","Andalucía"],
+[189,"Medina Azahara Trail",37.8880,-4.8670,"mountain",["5K","10K"],"moderate","Sendero hasta las ruinas del palacio califal. Terreno de sierra baja.","Córdoba","Andalucía"],
+[190,"Paraje Natural Marismas del Odiel",37.2190,-6.9630,"mixed",["10K"],"easy","Humedal costero con flamencos. Senderos llanos entre marismas.","Huelva","Andalucía"],
+[191,"Playa de Matalascañas",36.9880,-6.5650,"beach",["5K","10K"],"easy","Playa junto a Doñana. Arena extensa, ambiente salvaje.","Almonte","Andalucía"],
+[192,"Parque Natural de Cazorla",37.9130,-2.9240,"mountain",["10K","21K"],"hard","La mayor superficie protegida de España. Senderos entre bosques y cerros.","Cazorla","Andalucía"],
+[193,"Cabo de Gata",36.7260,-2.1880,"mixed",["10K","21K"],"moderate","Parque natural volcánico costero. Senderos entre calas desiertas.","Níjar","Andalucía"],
+[194,"Paseo Marítimo Almería",36.8360,-2.4550,"beach",["5K"],"easy","Paseo renovado junto al puerto. Llano y accesible.","Almería","Andalucía"],
+[195,"Paseo Marítimo Estepona",36.4250,-5.1470,"beach",["5K","10K"],"easy","Paseo costero en la Costa del Sol occidental. Ambiente tranquilo.","Estepona","Andalucía"],
+[196,"Paseo Marítimo Marbella",36.5050,-4.8840,"beach",["5K","10K"],"easy","Paseo entre Puerto Banús y el centro. Ambiente cosmopolita.","Marbella","Andalucía"],
+[197,"Caminito del Rey",36.9260,-4.7780,"mountain",["10K"],"hard","Pasarelas sobre el desfiladero de los Gaitanes. Sendero de acceso exigente.","Ardales","Andalucía"],
+[198,"Parque de los Alcornocales",36.4260,-5.5900,"forest",["10K","21K"],"moderate","Bosque de alcornoques más extenso de Europa. Senderos húmedos, canutos.","Alcalá de los Gazules","Andalucía"],
+[199,"Sierra de Grazalema",36.7630,-5.3710,"mountain",["10K"],"hard","Sierra húmeda con pinsapares únicos. Senderos de montaña media-alta.","Grazalema","Andalucía"],
+[200,"Ronda - Tajo Trail",36.7420,-5.1650,"mountain",["5K","10K"],"moderate","Senderos con vistas al Tajo de Ronda. Paisaje dramático de acantilados.","Ronda","Andalucía"],
+[201,"Parque del Guadalquivir Jaén",37.7660,-3.7860,"urban",["5K"],"easy","Paseo junto al río en la capital oleícola. Circuito llano.","Jaén","Andalucía"],
+[202,"Playa de Bolonia",36.0880,-5.7740,"beach",["5K"],"easy","Playa virgen con duna monumental y ruinas romanas. Arena firme.","Tarifa","Andalucía"],
+[203,"Punta del Espíritu Santo Tarifa",36.0070,-5.6040,"mixed",["5K","10K"],"moderate","Punto más meridional de Europa continental. Senderos entre dos mares.","Tarifa","Andalucía"],
+[204,"Ribera del Genil Granada",37.1690,-3.5990,"urban",["5K","10K"],"easy","Paseo fluvial del Genil. Conecta centro con la vega, llano.","Granada","Andalucía"],
+[205,"Dehesa del Generalife",37.1810,-3.5840,"forest",["5K"],"moderate","Bosque sobre la Alhambra. Senderos entre cipreses con vistas a la Vega.","Granada","Andalucía"],
+[206,"Pinares de Cartaya",37.2500,-7.1200,"forest",["5K","10K"],"easy","Bosque de pinos piñoneros junto a la costa onubense. Terreno arenoso.","Cartaya","Andalucía"],
+[207,"Vía Verde de la Sierra",36.9100,-5.4300,"mixed",["10K","21K","42K"],"moderate","36km de antigua vía férrea entre peñones y buitres. Paisaje impresionante.","Olvera","Andalucía"],
+[208,"Playa de los Lances Tarifa",36.0220,-5.6150,"beach",["5K","10K"],"easy","Playa extensa con viento constante. Arena compacta, kitesurf de fondo.","Tarifa","Andalucía"],
+[209,"Parque Moret Huelva",37.2620,-6.9580,"urban",["5K"],"easy","Mayor parque periurbano de Andalucía. Circuitos entre pinos y eucaliptos.","Huelva","Andalucía"],
+[210,"Desierto de Tabernas",37.0510,-2.3890,"mixed",["10K"],"hard","Único desierto de Europa. Senderos entre cárcavas y ramblas secas.","Tabernas","Andalucía"],
+[211,"Paseo del Parque Málaga",36.7170,-4.4150,"urban",["5K"],"easy","Jardín tropical junto al puerto. Circuito sombreado entre palmeras y ficus.","Málaga","Andalucía"],
+[212,"Acantilados de Maro",36.7440,-3.8450,"mixed",["5K","10K"],"moderate","Sendero litoral con calas escondidas. Vistas espectaculares al Mediterráneo.","Nerja","Andalucía"],
+[213,"Puerto Real - Caño Sancti Petri",36.5240,-6.1790,"beach",["5K","10K"],"easy","Sendero costero entre marismas y pinares. Fauna y paisaje atlántico.","Puerto Real","Andalucía"]);
+// === ARAGÓN (15) ===
+rawSpots.push(
+[214,"Ribera del Ebro Zaragoza",41.6570,-0.8790,"urban",["5K","10K"],"easy","Paseo junto al Ebro con vistas a la Basílica del Pilar. Circuito clásico.","Zaragoza","Aragón"],
+[215,"Parque Grande José Antonio Labordeta",41.6370,-0.8910,"urban",["5K","10K"],"easy","El pulmón de Zaragoza. Caminos amplios entre jardines y fuentes.","Zaragoza","Aragón"],
+[216,"Canal Imperial de Aragón",41.6340,-0.9050,"mixed",["10K","21K","42K"],"easy","Camino de sirga del canal histórico. Totalmente llano, 100km+ disponibles.","Zaragoza","Aragón"],
+[217,"Galacho de Juslibol",41.6950,-0.8900,"mixed",["5K","10K"],"easy","Espacio natural del Ebro con meandros abandonados. Senderos llanos.","Zaragoza","Aragón"],
+[218,"Valle de Ordesa",42.6630,-0.0550,"mountain",["10K","21K"],"hard","Parque Nacional pirenaico. Senderos espectaculares con cascadas y paredes.","Torla","Aragón"],
+[219,"Mallos de Riglos",42.3580,-0.7270,"mountain",["5K","10K"],"moderate","Formaciones de conglomerado impresionantes. Senderos de base y circuitos.","Riglos","Aragón"],
+[220,"Sendero del Río Turia Teruel",40.3450,-1.1060,"forest",["5K","10K"],"easy","Ribera del Turia en Teruel. Choperas y huertos, terreno llano.","Teruel","Aragón"],
+[221,"Albarracín Trails",40.4080,-1.4440,"mountain",["5K","10K"],"moderate","Senderos de rodeno rosado. Pinturas rupestres y bosques de pino rodeno.","Albarracín","Aragón"],
+[222,"Selva de Oza",42.7820,-0.6660,"forest",["5K","10K"],"moderate","Valle pirenaico con hayedos y abetales. Senderos de bosque atlántico.","Hecho","Aragón"],
+[223,"Embalse de Barasona",42.1770,0.3290,"mixed",["10K"],"easy","Circuito del embalse prepirenaico. Vistas a la sierra y aguas turquesa.","Graus","Aragón"],
+[224,"Monasterio de Piedra",41.1940,-1.7770,"forest",["5K"],"moderate","Parque natural con cascadas y grutas. Senderos entre vegetación exuberante.","Nuévalos","Aragón"],
+[225,"Sierra de Guara",42.2320,-0.0530,"mountain",["10K","21K"],"hard","Cañones y barrancos prepirenaicos. Senderos técnicos, paisaje espectacular.","Rodellar","Aragón"],
+[226,"Moncayo",41.7840,-1.8370,"mountain",["10K","21K"],"hard","Cumbre más alta del Sistema Ibérico. Hayedos y senderos de altitud.","Tarazona","Aragón"],
+[227,"Camino del Cid Aragón",41.0380,-0.2910,"mixed",["21K","42K"],"moderate","Tramo aragonés de la ruta histórica. Paisaje de secano y pueblos.","Calamocha","Aragón"],
+[228,"Parque del Agua Zaragoza",41.6850,-0.8570,"urban",["5K"],"easy","Parque junto al meandro del Ebro. Circuito moderno bien pavimentado.","Zaragoza","Aragón"]);
+// === CASTILLA-LA MANCHA (15) ===
+rawSpots.push(
+[229,"Senda Ecológica Toledo",39.8580,-4.0260,"mixed",["5K","10K"],"moderate","Circuito alrededor del casco histórico junto al Tajo. Vistas monumentales.","Toledo","Castilla-La Mancha"],
+[230,"Ribera del Tajo Toledo",39.8560,-4.0330,"urban",["5K"],"easy","Paseo junto al río bajo los puentes históricos. Llano y sombreado.","Toledo","Castilla-La Mancha"],
+[231,"Tablas de Daimiel",39.1450,-3.7150,"mixed",["5K","10K"],"easy","Humedal manchego con pasarelas y senderos. Paisaje acuático único.","Daimiel","Castilla-La Mancha"],
+[232,"Lagunas de Ruidera",38.9320,-2.8800,"mixed",["10K","21K"],"moderate","Cascada de lagunas conectadas. Senderos entre agua turquesa y encinas.","Ossa de Montiel","Castilla-La Mancha"],
+[233,"Parque Abelardo Sánchez",38.9950,-1.8580,"urban",["5K"],"easy","Parque principal de Albacete. Circuito entre cedros y palmeras.","Albacete","Castilla-La Mancha"],
+[234,"Hoz del Júcar Cuenca",40.0700,-2.1300,"mountain",["5K","10K"],"hard","Sendero por la garganta del Júcar. Casas colgadas arriba, río abajo.","Cuenca","Castilla-La Mancha"],
+[235,"Ciudad Encantada Trail",40.2090,-1.9600,"mountain",["5K"],"moderate","Formaciones kársticas con senderos entre rocas esculpidas por la erosión.","Cuenca","Castilla-La Mancha"],
+[236,"Parque de la Concordia Guadalajara",40.6340,-3.1650,"urban",["5K"],"easy","Parque urbano junto al Henares. Circuito compacto arbolado.","Guadalajara","Castilla-La Mancha"],
+[237,"Río Henares Guadalajara",40.6320,-3.1580,"forest",["5K","10K"],"easy","Senda fluvial junto al Henares. Vegetación de ribera, terreno llano.","Guadalajara","Castilla-La Mancha"],
+[238,"Molinos del Guadiana",38.9910,-3.9280,"mixed",["5K","10K"],"easy","Ruta entre molinos históricos. Paseo fluvial en plena Mancha.","Ciudad Real","Castilla-La Mancha"],
+[239,"Hayedo de Tejera Negra",41.2380,-3.2620,"forest",["10K"],"moderate","Uno de los hayedos más meridionales de Europa. Senderos otoñales mágicos.","Cantalojas","Castilla-La Mancha"],
+[240,"Parque Nacional de Cabañeros",39.3980,-4.2930,"forest",["10K","21K"],"moderate","Bosque mediterráneo y rañas. Senderos entre ciervos y buitres.","Horcajo","Castilla-La Mancha"],
+[241,"Nacimiento del Río Mundo",38.4990,-2.4490,"mountain",["5K","10K"],"moderate","Cascada spectacular y senderos de montaña. Calares del río Mundo.","Riópar","Castilla-La Mancha"],
+[242,"Alarcón - Embalse",39.6880,-2.0940,"mixed",["10K"],"easy","Circuito junto al embalse con vistas al castillo medieval.","Alarcón","Castilla-La Mancha"],
+[243,"Vía Verde de la Jara",39.6070,-4.9350,"mixed",["10K","21K"],"easy","Antigua vía férrea inacabada. Túneles y viaductos en paisaje de jara.","La Estrella","Castilla-La Mancha"]);
+// === EXTREMADURA (10) ===
+rawSpots.push(
+[244,"Ribera del Jerte",40.1180,-5.8640,"forest",["5K","10K"],"easy","Valle del Jerte junto al río. Cerezos, piscinas naturales, terreno suave.","Cabezuela","Extremadura"],
+[245,"Monfragüe",39.8430,-5.9650,"mountain",["10K","21K"],"moderate","Parque Nacional con buitres y águilas. Senderos entre matorral y roquedos.","Villarreal","Extremadura"],
+[246,"Ribera del Guadiana Badajoz",38.8720,-6.9670,"urban",["5K","10K"],"easy","Paseo fluvial junto al Guadiana. Vistas a la Alcazaba y puente de Palmas.","Badajoz","Extremadura"],
+[247,"Parque del Príncipe Cáceres",39.4760,-6.3730,"urban",["5K"],"easy","Parque principal con estanque. Circuito arbolado en zona monumental.","Cáceres","Extremadura"],
+[248,"Embalse de Proserpina",38.9640,-6.3680,"mixed",["5K","10K"],"easy","Embalse romano con playa fluvial. Circuito perimetral con encinas.","Mérida","Extremadura"],
+[249,"Paseo Fluvial Mérida",38.9120,-6.3430,"urban",["5K","10K"],"easy","Ribera del Guadiana junto al puente romano y teatro. Patrimonio UNESCO.","Mérida","Extremadura"],
+[250,"Valle del Ambroz",40.2120,-5.8640,"forest",["10K"],"moderate","Bosque de castaños centenarios. Senderos con pozas naturales.","Hervás","Extremadura"],
+[251,"Sierra de San Pedro",39.3500,-6.8200,"forest",["10K","21K"],"moderate","Dehesa extremeña pura. Encinas, alcornoques y fauna ibérica.","San Vicente","Extremadura"],
+[252,"Garganta de los Infiernos",40.1980,-5.7830,"mountain",["10K"],"hard","Reserva natural con cascadas y pilones. Senderos de montaña exigentes.","Jerte","Extremadura"],
+[253,"Cornalvo",38.9950,-6.2930,"mixed",["5K","10K"],"easy","Embalse romano en parque natural. Senderos entre encinas y alcornoques.","Mérida","Extremadura"]);
+// === MURCIA (10) ===
+rawSpots.push(
+[254,"Ribera del Segura Murcia",38.0010,-1.1300,"urban",["5K","10K"],"easy","Paseo fluvial del Segura por el centro de Murcia. Llano y sombreado.","Murcia","Murcia"],
+[255,"Parque de El Valle",37.9600,-1.1250,"forest",["5K","10K"],"moderate","Parque regional periurbano. Senderos entre pinos con vistas a Murcia.","Murcia","Murcia"],
+[256,"Calblanque",37.6060,-0.7350,"beach",["5K","10K"],"moderate","Parque regional con playas vírgenes. Senderos entre dunas y salinas.","Cartagena","Murcia"],
+[257,"Paseo Marítimo Cartagena",37.5950,-0.9810,"urban",["5K"],"easy","Paseo del puerto histórico. Superficie renovada junto al mar.","Cartagena","Murcia"],
+[258,"Monte de las Cenizas",37.5870,-0.7520,"mountain",["5K","10K"],"hard","Acantilados volcánicos con vistas 360°. Senderos exigentes.","Cartagena","Murcia"],
+[259,"La Manga del Mar Menor",37.6430,-0.7060,"beach",["5K","10K","21K"],"easy","Lengua de arena entre dos mares. Paseo rectilíneo con agua a ambos lados.","San Javier","Murcia"],
+[260,"Sierra Espuña",37.8630,-1.5620,"mountain",["10K","21K"],"hard","Parque regional de montaña. Bosques de pino carrasco y senderos alpinos.","Alhama","Murcia"],
+[261,"Salinas de San Pedro",37.8220,-0.8050,"mixed",["5K"],"easy","Humedal con flamencos junto al pueblo pesquero. Senderos llanos.","San Pedro","Murcia"],
+[262,"Paseo de la Sal Águilas",37.4050,-1.5810,"beach",["5K"],"easy","Paseo costero con calas. Ambiente marinero tranquilo.","Águilas","Murcia"],
+[263,"Rambla del Puerto Mazarrón",37.5690,-1.2630,"mixed",["5K","10K"],"easy","Sendero costero entre bahías. Paisaje semiárido con mar turquesa.","Mazarrón","Murcia"]);
+// === CANARIAS (15) ===
+rawSpots.push(
+[264,"Anaga Tenerife",28.5530,-16.1830,"forest",["10K","21K"],"hard","Bosque de laurisilva en macizo volcánico. Senderos entre niebla y helechos.","Santa Cruz","Canarias"],
+[265,"Teide Base Trail",28.2720,-16.6420,"mountain",["10K","21K"],"hard","Senderos en el Parque Nacional a 2.000m+. Paisaje lunar volcánico.","La Orotava","Canarias"],
+[266,"Paseo Marítimo Las Américas",28.0560,-16.7290,"beach",["5K","10K"],"easy","Paseo turístico junto a la playa. Llano, clima cálido todo el año.","Adeje","Canarias"],
+[267,"Barranco del Infierno",28.1080,-16.7270,"mountain",["5K","10K"],"hard","Desfiladero con cascada final. Sendero estrecho entre paredes volcánicas.","Adeje","Canarias"],
+[268,"Dunas de Maspalomas",27.7420,-15.5780,"beach",["5K"],"moderate","Campo de dunas junto al mar. Carrera en arena blanda, paisaje sahariano.","San Bartolomé","Canarias"],
+[269,"Pico de las Nieves",27.9600,-15.5710,"mountain",["10K"],"hard","Punto más alto de Gran Canaria. Senderos de cumbre con vistas a Tenerife.","Tejeda","Canarias"],
+[270,"Paseo Marítimo Las Canteras",28.1370,-15.4390,"beach",["5K"],"easy","Playa urbana de Las Palmas. 3km de paseo con ambiente cosmopolita.","Las Palmas","Canarias"],
+[271,"Roque Nublo Circuit",27.9720,-15.6120,"mountain",["5K","10K"],"moderate","Circuito del monolito basáltico. Senderos de cumbre con panorámicas.","Tejeda","Canarias"],
+[272,"Ruta de los Volcanes La Palma",28.5620,-17.8560,"mountain",["21K"],"hard","Ruta de cumbres volcánicas. Paisaje de cráteres y malpaís reciente.","El Paso","Canarias"],
+[273,"Caldera de Taburiente",28.7300,-17.9130,"mountain",["10K","21K"],"hard","Interior del cráter erosionado. Senderos entre pinares y cascadas.","El Paso","Canarias"],
+[274,"Playa de Famara Lanzarote",29.1040,-13.5580,"beach",["5K","10K"],"easy","Playa salvaje de 6km bajo acantilados. Arena firme, viento constante.","Teguise","Canarias"],
+[275,"Ruta de los Volcanes Lanzarote",28.9940,-13.7500,"mountain",["10K"],"moderate","Sendero entre volcanes de Timanfaya. Paisaje marciano de lava.","Yaiza","Canarias"],
+[276,"Corralejo Dunes Fuerteventura",28.7270,-13.8660,"beach",["5K","10K"],"moderate","Dunas de arena blanca junto al mar turquesa. Terreno arenoso exigente.","La Oliva","Canarias"],
+[277,"Garajonay La Gomera",28.1170,-17.2320,"forest",["10K"],"moderate","Bosque de laurisilva Patrimonio UNESCO. Senderos en niebla perpetua.","San Sebastián","Canarias"],
+[278,"Mirador del Río Trail Lanzarote",29.2130,-13.4800,"mixed",["5K"],"moderate","Sendero en los acantilados del norte. Vistas a La Graciosa desde 400m.","Haría","Canarias"]);
+// === BALEARES (10) ===
+rawSpots.push(
+[279,"Paseo Marítimo Palma",39.5660,2.6290,"urban",["5K","10K"],"easy","Paseo junto a la catedral y el puerto. Superficie perfecta, llano.","Palma","Baleares"],
+[280,"Serra de Tramuntana - Sóller",39.7660,2.7150,"mountain",["10K","21K"],"hard","Patrimonio UNESCO. Senderos de montaña entre olivos y bancales.","Sóller","Baleares"],
+[281,"Cala Mondragó",39.3450,3.1890,"beach",["5K"],"moderate","Parque natural con calas turquesas. Senderos entre pinar y acantilados.","Santanyí","Baleares"],
+[282,"Camí de Cavalls Menorca",39.9430,3.8230,"mixed",["10K","21K","42K"],"moderate","186km de sendero perimetral de la isla. Camino histórico costero.","Ciutadella","Baleares"],
+[283,"Cala Macarella Menorca",39.9370,3.9300,"beach",["5K"],"moderate","Sendero a la cala más fotografiada. Arena blanca, agua cristalina.","Ciutadella","Baleares"],
+[284,"Ses Salines Ibiza",38.8670,1.3720,"mixed",["5K","10K"],"easy","Parque natural de salinas milenarias. Senderos llanos con flamencos.","Sant Josep","Baleares"],
+[285,"Santa Eulària des Riu",38.9870,1.5350,"mixed",["5K","10K"],"easy","Paseo fluvial y costero. Único río permanente de Baleares.","Santa Eulària","Baleares"],
+[286,"Cap de Formentor",39.9620,3.1630,"mountain",["10K"],"hard","Carretera escénica y senderos en el extremo norte de Mallorca.","Pollença","Baleares"],
+[287,"Platja de Muro",39.8080,3.1070,"beach",["5K","10K"],"easy","Playa extensa en la bahía de Alcúdia. Arena fina, poco desnivel.","Muro","Baleares"],
+[288,"Torrent de Pareis",39.8510,2.8230,"mountain",["5K"],"hard","Desfiladero espectacular. Descenso técnico hasta Sa Calobra.","Escorca","Baleares"]);
+// === CEUTA (3) ===
+rawSpots.push(
+[289,"Paseo Marítimo de Ceuta",35.8920,-5.3130,"beach",["5K"],"easy","Paseo costero mediterráneo con vistas a la costa marroquí.","Ceuta","Ceuta"],
+[290,"Monte Hacho",35.8870,-5.2830,"mountain",["5K","10K"],"moderate","Senderos militares con vistas al Estrecho. Flora norteafricana.","Ceuta","Ceuta"],
+[291,"Parque Marítimo del Mediterráneo",35.8910,-5.3140,"urban",["5K"],"easy","Parque urbano junto al mar diseñado por César Manrique.","Ceuta","Ceuta"]);
+// === MELILLA (3) ===
+rawSpots.push(
+[292,"Paseo Marítimo de Melilla",35.2920,-2.9380,"beach",["5K"],"easy","Paseo costero con vistas al Mediterráneo africano. Llano y accesible.","Melilla","Melilla"],
+[293,"Parque de los Pueblos de España",35.2880,-2.9510,"urban",["5K"],"easy","Principal parque urbano. Circuito entre palmeras y jardines.","Melilla","Melilla"],
+[294,"Rostrogordo",35.2840,-2.9620,"forest",["5K","10K"],"moderate","Parque periurbano con encinas y vistas al mar. Red de senderos.","Melilla","Melilla"]);
+// === EXTRAS PARA LLEGAR A 300 ===
+rawSpots.push(
+[295,"Playa de la Concha - Algeciras",36.1310,-5.4530,"beach",["5K"],"easy","Playa urbana con vistas al Peñón de Gibraltar. Arena compacta.","Algeciras","Andalucía"],
+[296,"Embalse de El Atazar",40.9060,-3.4750,"mixed",["10K","21K"],"moderate","Circuito en la sierra norte de Madrid. Vistas al mayor embalse madrileño.","El Atazar","Madrid"],
+[297,"Paseo Fluvial Ávila",40.6530,-4.6990,"urban",["5K"],"easy","Paseo junto al Adaja con vistas a la muralla medieval. Circuito llano.","Ávila","Castilla y León"],
+[298,"Playa de las Teresitas Tenerife",28.5090,-16.1880,"beach",["5K"],"easy","Playa de arena dorada importada del Sahara. Agua tranquila, palmeras.","Santa Cruz","Canarias"],
+[299,"Parque Natural de s'Albufera Mallorca",39.7930,3.1060,"mixed",["5K","10K"],"easy","Humedal costero con observatorios de aves. Senderos entre cañaverales.","Muro","Baleares"],
+[300,"Senda del Duero Zamora",41.5010,-5.7560,"forest",["10K","21K"],"easy","Ribera del Duero a su paso por Zamora. Aceñas medievales y choperas.","Zamora","Castilla y León"]);
+
+// ============ BUILD SPOT OBJECTS ============
+const spots = rawSpots.map(s => ({
+  id:s[0], name:s[1], lat:s[2], lng:s[3], terrain:s[4],
+  distances:s[5], difficulty:s[6], desc:s[7], city:s[8], community:s[9],
+  photo: getLocalPhoto(s[0])
+}));
+
+// ============ AUTH SYSTEM ============
+let currentUser = null;
+let isLogin = true;
+
+async function hashPassword(pass, salt) {
+  const enc = new TextEncoder();
+  const data = enc.encode(salt + pass);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function getUsers() { return JSON.parse(localStorage.getItem('cs_users')||'{}'); }
+function saveUsers(u) { localStorage.setItem('cs_users', JSON.stringify(u)); }
+function getFavorites() { return JSON.parse(localStorage.getItem('cs_favs_'+currentUser.email)||'[]'); }
+function saveFavorites(f) { localStorage.setItem('cs_favs_'+currentUser.email, JSON.stringify(f)); }
+function getRuns() { return JSON.parse(localStorage.getItem('cs_runs_'+currentUser.email)||'[]'); }
+function saveRuns(r) { localStorage.setItem('cs_runs_'+currentUser.email, JSON.stringify(r)); }
+
+function toggleAuthMode() {
+  isLogin = !isLogin;
+  document.getElementById('authNameGroup').style.display = isLogin ? 'none' : 'block';
+  document.getElementById('authBtn').textContent = isLogin ? 'Iniciar sesión' : 'Crear cuenta';
+  document.getElementById('authSwitchText').textContent = isLogin ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?';
+  document.getElementById('authSwitchLink').textContent = isLogin ? 'Regístrate' : 'Inicia sesión';
+  document.getElementById('authError').style.display = 'none';
+}
+
+async function handleAuth() {
+  const email = document.getElementById('authEmail').value.trim();
+  const pass = document.getElementById('authPass').value;
+  const errEl = document.getElementById('authError');
+  if (!email || !pass) { errEl.textContent='Completa todos los campos'; errEl.style.display='block'; return; }
+  const users = getUsers();
+  if (isLogin) {
+    const user = users[email];
+    if (!user) { errEl.textContent='Email no registrado'; errEl.style.display='block'; return; }
+    const hash = await hashPassword(pass, user.salt);
+    if (hash !== user.hash) { errEl.textContent='Contraseña incorrecta'; errEl.style.display='block'; return; }
+    currentUser = { email, name: user.name };
+  } else {
+    const name = document.getElementById('authName').value.trim();
+    if (!name) { errEl.textContent='Introduce tu nombre'; errEl.style.display='block'; return; }
+    if (users[email]) { errEl.textContent='Email ya registrado'; errEl.style.display='block'; return; }
+    const salt = crypto.getRandomValues(new Uint8Array(16)).join('');
+    const hash = await hashPassword(pass, salt);
+    users[email] = { name, salt, hash };
+    saveUsers(users);
+    currentUser = { email, name };
+  }
+  localStorage.setItem('cs_session', JSON.stringify(currentUser));
+  startApp();
+}
+
+function logout() {
+  localStorage.removeItem('cs_session');
+  currentUser = null;
+  document.getElementById('authOverlay').style.display = 'flex';
+  document.getElementById('mainApp').style.display = 'none';
+}
+
+function checkSession() {
+  const s = localStorage.getItem('cs_session');
+  if (s) { currentUser = JSON.parse(s); startApp(); }
+}
+
+// ============ MAP & APP ============
+let map, markers = [], activeFilters = { terrain:'all', dist:'all', diff:'all' };
+
+function startApp() {
+  document.getElementById('authOverlay').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'flex';
+  document.getElementById('userAvatar').textContent = currentUser.name.charAt(0).toUpperCase();
+  document.getElementById('userName').textContent = currentUser.name;
+  updateRunCount();
+  initMap();
+  renderSpots();
+}
+
+function initMap() {
+  if (map) return;
+  map = L.map('map',{zoomControl:false}).setView([40.0,-3.7],6);
+  L.control.zoom({position:'topright'}).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'© OpenStreetMap © CARTO', maxZoom:19
+  }).addTo(map);
+}
+
+function getMarkerColor(terrain) {
+  const c = {beach:'#00cec9',forest:'#00b894',mountain:'#e17055',urban:'#fdcb6e',mixed:'#a29bfe'};
+  return c[terrain]||'#a29bfe';
+}
+
+function createMarkerIcon(terrain) {
+  const color = getMarkerColor(terrain);
+  return L.divIcon({
+    className:'custom-marker',
+    html:`<div style="width:14px;height:14px;background:${color};border-radius:50%;border:2px solid rgba(255,255,255,.8);box-shadow:0 2px 8px rgba(0,0,0,.4)"></div>`,
+    iconSize:[14,14], iconAnchor:[7,7]
+  });
+}
+
+function renderSpots() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const filtered = spots.filter(s => {
+    if (activeFilters.terrain!=='all' && s.terrain!==activeFilters.terrain) return false;
+    if (activeFilters.dist!=='all' && !s.distances.includes(activeFilters.dist)) return false;
+    if (activeFilters.diff!=='all' && s.difficulty!==activeFilters.diff) return false;
+    if (search && !s.name.toLowerCase().includes(search) && !s.city.toLowerCase().includes(search) && !s.community.toLowerCase().includes(search)) return false;
+    return true;
+  });
+  
+  document.getElementById('spotCount').textContent = `${filtered.length} de ${spots.length} spots`;
+  markers.forEach(m=>map.removeLayer(m));
+  markers = [];
+  
+  const list = document.getElementById('spotList');
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="no-results"><p>No se encontraron spots con esos filtros</p></div>';
+    return;
+  }
+  
+  list.innerHTML = filtered.map(s => `
+    <div class="spot-card" onclick="openDetail(${s.id})">
+      <img class="spot-card-img sv-loading" data-src="${s.photo}" alt="${s.name}">
+      <div class="spot-card-body">
+        <div class="spot-card-top">
+          <h3>${s.name}</h3>
+          <span class="spot-card-terrain terrain-${s.terrain}">${terrainLabels[s.terrain]}</span>
+        </div>
+        <div class="spot-card-meta">
+          <span>📍 ${s.city}</span>
+          <span>📊 ${diffLabels[s.difficulty]}</span>
+        </div>
+        <div class="spot-distances">${s.distances.map(d=>`<span class="dist-tag">${d}</span>`).join('')}</div>
+      </div>
+    </div>
+  `).join('');
+  
+  filtered.forEach(s => {
+    const m = L.marker([s.lat,s.lng],{icon:createMarkerIcon(s.terrain)}).addTo(map);
+    m.bindPopup(`<div class="spot-popup"><h4>${s.name}</h4><p>${s.city}, ${s.community}</p><button class="pop-btn" onclick="openDetail(${s.id})">Ver detalle</button></div>`);
+    markers.push(m);
+  });
+  setTimeout(setupLazyPhotos, 50);
+}
+
+function setFilter(type, btn) {
+  const container = btn.parentElement;
+  container.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  activeFilters[type] = btn.dataset.filter;
+  filterSpots();
+}
+
+function filterSpots() { renderSpots(); }
+
+// ============ DETAIL PANEL ============
+function openDetail(id) {
+  const s = spots.find(x=>x.id===id);
+  if (!s) return;
+  const panel = document.getElementById('detailPanel');
+  const dImg = document.getElementById('detailImg');
+  
+  dImg.style.display = 'block';
+  dImg.src = s.photo;
+  dImg.onerror = () => { dImg.style.display = 'none'; };
+
+  const favs = getFavorites();
+  const isFav = favs.includes(id);
+  const runs = getRuns().filter(r=>r.spotId===id);
+  const spotRuns = runs.sort((a,b)=>new Date(b.date)-new Date(a.date));
+
+  document.getElementById('detailBody').innerHTML = `
+    <h2>${s.name}</h2>
+    <div class="detail-location">📍 ${s.city}, ${s.community}</div>
+    <div class="detail-tags">
+      <span class="spot-card-terrain terrain-${s.terrain}">${terrainLabels[s.terrain]}</span>
+      ${s.distances.map(d=>`<span class="dist-tag">${d}</span>`).join('')}
+      <span class="dist-tag">📊 ${diffLabels[s.difficulty]}</span>
+    </div>
+    <div class="detail-desc">${s.desc}</div>
+    <div class="detail-stats">
+      <div class="stat-box"><div class="val">${s.distances.length}</div><div class="label">Distancias</div></div>
+      <div class="stat-box"><div class="val">${spotRuns.length}</div><div class="label">Tus runs</div></div>
+      <div class="stat-box"><div class="val">${spotRuns.length>0?getBestPace(spotRuns):'—'}</div><div class="label">Mejor pace</div></div>
+    </div>
+    <div class="detail-actions">
+      <button class="btn btn-primary" onclick="showRunForm(${id})">+ Registrar run</button>
+      <button class="btn-fav ${isFav?'active':''}" onclick="toggleFav(${id},this)">${isFav?'♥':'♡'}</button>
+    </div>
+    <div class="run-log-section">
+      <h3>Registrar carrera</h3>
+      <div class="run-form" id="runForm-${id}" style="display:none">
+        <div class="form-group"><label>Distancia (km)</label><input type="number" id="rf-dist-${id}" step="0.01" placeholder="5.00"></div>
+        <div class="form-group"><label>Tiempo</label><input type="text" id="rf-time-${id}" placeholder="25:30 (mm:ss)"></div>
+        <div class="form-group"><label>Fecha</label><input type="date" id="rf-date-${id}" value="${new Date().toISOString().split('T')[0]}"></div>
+        <div class="form-group">
+          <label>Sensación</label>
+          <select id="rf-feel-${id}"><option value="great">💪 Genial</option><option value="good">😊 Bien</option><option value="ok">😐 Normal</option><option value="hard">😤 Duro</option><option value="bad">😵 Malo</option></select>
+        </div>
+        <div class="form-group full"><label>Notas</label><input type="text" id="rf-notes-${id}" placeholder="Opcional..."></div>
+        <div class="full"><button class="btn btn-primary" onclick="saveRun(${id})" style="width:100%">Guardar carrera</button></div>
+      </div>
+      <h3 style="margin-top:16px">Historial en este spot</h3>
+      <div class="run-history">
+        ${spotRuns.length===0?'<p style="color:var(--text2);font-size:13px;padding:8px">Aún no tienes carreras aquí</p>':''}
+        ${spotRuns.map(r=>`
+          <div class="run-entry">
+            <div class="run-entry-info">
+              <div class="run-entry-date">${formatDate(r.date)} · ${feelEmoji(r.feel)}</div>
+              <div class="run-entry-stats">
+                <span>📏 ${r.distance} km</span>
+                <span>⏱ ${r.time}</span>
+                <span class="run-entry-pace">⚡ ${r.pace} /km</span>
+              </div>
+              ${r.notes?`<div style="font-size:12px;color:var(--text2);margin-top:2px">${r.notes}</div>`:''}
+            </div>
+            <button class="run-entry-del" onclick="deleteRun('${r.id}',${id})">✕</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  panel.classList.add('open');
+  map.flyTo([s.lat, s.lng], 13, {duration:1});
+}
+
+function closeDetail() { document.getElementById('detailPanel').classList.remove('open'); }
+
+function showRunForm(id) {
+  const form = document.getElementById(`runForm-${id}`);
+  form.style.display = form.style.display==='none'?'grid':'none';
+}
+
+function saveRun(spotId) {
+  const dist = document.getElementById(`rf-dist-${spotId}`).value;
+  const time = document.getElementById(`rf-time-${spotId}`).value;
+  const date = document.getElementById(`rf-date-${spotId}`).value;
+  const feel = document.getElementById(`rf-feel-${spotId}`).value;
+  const notes = document.getElementById(`rf-notes-${spotId}`).value;
+  if (!dist||!time||!date) return;
+  const pace = calcPace(parseFloat(dist), time);
+  const runs = getRuns();
+  runs.push({ id: Date.now().toString(), spotId, distance:dist, time, date, feel, notes, pace });
+  saveRuns(runs);
+  updateRunCount();
+  openDetail(spotId);
+}
+
+function deleteRun(runId, spotId) {
+  const runs = getRuns().filter(r=>r.id!==runId);
+  saveRuns(runs);
+  updateRunCount();
+  openDetail(spotId);
+}
+
+function calcPace(distKm, timeStr) {
+  const parts = timeStr.split(':').map(Number);
+  let totalMin;
+  if (parts.length===3) totalMin = parts[0]*60+parts[1]+parts[2]/60;
+  else if (parts.length===2) totalMin = parts[0]+parts[1]/60;
+  else return '—';
+  const pace = totalMin/distKm;
+  const pMin = Math.floor(pace);
+  const pSec = Math.round((pace-pMin)*60);
+  return `${pMin}:${pSec.toString().padStart(2,'0')}`;
+}
+
+function getBestPace(runs) {
+  let best = Infinity;
+  let bestStr = '—';
+  runs.forEach(r=>{
+    const parts = r.pace.split(':').map(Number);
+    if(parts.length===2){const t=parts[0]*60+parts[1];if(t<best){best=t;bestStr=r.pace;}}
+  });
+  return bestStr;
+}
+
+function formatDate(d) {
+  const date = new Date(d);
+  return date.toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'});
+}
+
+function feelEmoji(f) {
+  const m={great:'💪',good:'😊',ok:'😐',hard:'😤',bad:'😵'};
+  return m[f]||'';
+}
+
+function toggleFav(id, btn) {
+  let favs = getFavorites();
+  if (favs.includes(id)) { favs = favs.filter(f=>f!==id); btn.classList.remove('active'); btn.textContent='♡'; }
+  else { favs.push(id); btn.classList.add('active'); btn.textContent='♥'; }
+  saveFavorites(favs);
+}
+
+function updateRunCount() {
+  const runs = getRuns();
+  document.getElementById('userRunCount').textContent = `${runs.length} runs registrados`;
+}
+
+// ============ TABS ============
+function switchTab(tab, btn) {
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  if (tab==='favs') renderFavorites();
+  if (tab==='runs') renderMyRuns();
+}
+
+function renderFavorites() {
+  const favs = getFavorites();
+  const list = document.getElementById('favList');
+  if (favs.length===0) {
+    list.innerHTML='<div class="no-results"><p>Aún no tienes favoritos.<br>Pulsa ♡ en un spot para guardarlo.</p></div>';
+    return;
+  }
+  const favSpots = spots.filter(s=>favs.includes(s.id));
+  list.innerHTML = favSpots.map(s=>`
+    <div class="spot-card" onclick="openDetail(${s.id})">
+      <img class="spot-card-img" src="${s.photo}" alt="${s.name}" onerror="this.style.display='none'">
+      <div class="spot-card-body">
+        <div class="spot-card-top"><h3>${s.name}</h3><span class="spot-card-terrain terrain-${s.terrain}">${terrainLabels[s.terrain]}</span></div>
+        <div class="spot-card-meta"><span>📍 ${s.city}</span></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderMyRuns() {
+  const runs = getRuns().sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const panel = document.getElementById('runsPanel');
+  const totalDist = runs.reduce((sum,r)=>sum+parseFloat(r.distance),0);
+  const totalRuns = runs.length;
+  const uniqueSpots = [...new Set(runs.map(r=>r.spotId))].length;
+  const bestPace = runs.length>0 ? getBestPace(runs) : '—';
+
+  panel.innerHTML = `
+    <h3>Mis carreras</h3>
+    <p class="subtitle">Tu historial completo de running</p>
+    <div class="overall-stats">
+      <div class="overall-stat"><div class="val">${totalRuns}</div><div class="label">Carreras</div></div>
+      <div class="overall-stat"><div class="val">${totalDist.toFixed(1)}</div><div class="label">km totales</div></div>
+      <div class="overall-stat"><div class="val">${uniqueSpots}</div><div class="label">Spots</div></div>
+      <div class="overall-stat"><div class="val">${bestPace}</div><div class="label">Mejor pace</div></div>
+    </div>
+    ${runs.length===0?'<p style="color:var(--text2);text-align:center;padding:20px">Registra tu primera carrera desde un spot</p>':''}
+    <div class="run-history">
+      ${runs.map(r=>{
+        const spot = spots.find(s=>s.id===r.spotId);
+        return `<div class="run-entry" onclick="openDetail(${r.spotId})" style="cursor:pointer">
+          <div class="run-entry-info">
+            <div class="run-entry-date">${formatDate(r.date)} · ${spot?spot.name:'Spot'} · ${feelEmoji(r.feel)}</div>
+            <div class="run-entry-stats">
+              <span>📏 ${r.distance} km</span>
+              <span>⏱ ${r.time}</span>
+              <span class="run-entry-pace">⚡ ${r.pace} /km</span>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+// ============ MOBILE ============
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const bg = document.getElementById('overlayBg');
+  sb.classList.toggle('open');
+  bg.classList.toggle('show');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlayBg').classList.remove('show');
+}
+
+// ============ SERVICE WORKER REGISTRATION ============
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js')
+      .then(reg => console.log('¡Service Worker registrado con éxito!', reg))
+      .catch(err => console.error('Error al registrar el Service Worker', err));
+  });
+}
+
+// ============ INIT ============
+function waitForLeaflet(cb) {
+  if (typeof L !== 'undefined') cb();
+  else setTimeout(() => waitForLeaflet(cb), 50);
+}
+if (document.readyState === 'complete') {
+  waitForLeaflet(checkSession);
+} else {
+  window.addEventListener('load', () => waitForLeaflet(checkSession));
+}
+</script>
+</body>
+</html>
