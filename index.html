@@ -135,6 +135,39 @@ h1,h2,h3,h4{font-family:'Space Grotesk',sans-serif}
 .no-results{text-align:center;padding:40px 20px;color:var(--text2)}
 .no-results svg{margin-bottom:12px;opacity:.4}
 .no-results p{font-size:14px}
+
+ 
+.tracker-btn{display:none;position:fixed;bottom:20px;right:20px;z-index:998;width:56px;height:56px;border-radius:50%;background:var(--green);color:#fff;border:none;font-size:24px;cursor:pointer;box-shadow:0 4px 20px rgba(0,184,148,.4);transition:all .2s;font-family:'DM Sans',sans-serif}
+.tracker-btn:hover{transform:scale(1.1)}
+.tracker-btn.recording{background:var(--red);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 4px 20px rgba(225,112,85,.4)}50%{box-shadow:0 4px 30px rgba(225,112,85,.7)}}
+.tracker-overlay{position:fixed;inset:0;background:var(--bg);z-index:9998;display:none;flex-direction:column}
+.tracker-overlay.open{display:flex}
+.tracker-header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--surface3)}
+.tracker-header h2{font-size:18px}
+.tracker-close{background:none;border:none;color:var(--text2);font-size:24px;cursor:pointer}
+.tracker-stats{display:flex;justify-content:center;gap:0;flex:1;align-items:center;padding:20px}
+.tracker-stat{flex:1;text-align:center;padding:20px}
+.tracker-stat .value{font-family:'Space Grotesk',sans-serif;font-size:48px;font-weight:700;color:var(--text)}
+.tracker-stat .unit{font-size:14px;color:var(--text2);margin-top:4px}
+.tracker-stat.main .value{font-size:64px;color:var(--accent2)}
+.tracker-map{height:200px;border-top:1px solid var(--surface3);border-bottom:1px solid var(--surface3)}
+.tracker-controls{display:flex;gap:16px;padding:24px;justify-content:center;align-items:center}
+.ctrl-btn{width:64px;height:64px;border-radius:50%;border:none;font-size:24px;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif}
+.ctrl-start{background:var(--green);color:#fff}
+.ctrl-pause{background:var(--orange);color:#fff}
+.ctrl-stop{background:var(--red);color:#fff}
+.ctrl-resume{background:var(--green);color:#fff}
+.ctrl-btn:hover{transform:scale(1.1)}
+.tracker-save{padding:24px;border-top:1px solid var(--surface3);display:none}
+.tracker-save h3{font-size:16px;margin-bottom:12px}
+.tracker-save .form-group{margin-bottom:12px}
+.tracker-summary{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px}
+.tracker-summary .stat-box .val{font-size:22px}
+.gps-status{font-size:12px;color:var(--text2);text-align:center;padding:8px}
+.gps-status.active{color:var(--green)}
+.gps-status.error{color:var(--red)}
+ 
 </style>
 </head>
 <body>
@@ -212,6 +245,54 @@ h1,h2,h3,h4{font-family:'Space Grotesk',sans-serif}
 <button class="mobile-toggle" id="mobileToggle" onclick="toggleSidebar()">☰ Explorar spots</button>
 </div>
 <div class="overlay-bg" id="overlayBg" onclick="closeSidebar()"></div>
+ 
+=== BLOQUE 2: HTML ===
+(Pega esto JUSTO ANTES de <div class="detail-panel")
+ 
+<button class="tracker-btn" id="trackerBtn" onclick="openTracker()" title="Iniciar carrera">▶</button>
+<div class="tracker-overlay" id="trackerOverlay">
+<div class="tracker-header">
+<h2>🏃 Carrera en vivo</h2>
+<button class="tracker-close" onclick="closeTracker()">✕</button>
+</div>
+<div class="gps-status" id="gpsStatus">Esperando señal GPS...</div>
+<div class="tracker-stats">
+<div class="tracker-stat">
+<div class="value" id="trkTime">00:00</div>
+<div class="unit">Tiempo</div>
+</div>
+<div class="tracker-stat main">
+<div class="value" id="trkDist">0.00</div>
+<div class="unit">km</div>
+</div>
+<div class="tracker-stat">
+<div class="value" id="trkPace">--:--</div>
+<div class="unit">min/km</div>
+</div>
+</div>
+<div class="tracker-map" id="trackerMap"></div>
+<div class="tracker-controls" id="trkControls">
+<button class="ctrl-btn ctrl-start" id="btnStart" onclick="startTracking()">▶</button>
+</div>
+<div class="tracker-save" id="trkSave">
+<h3>Carrera completada</h3>
+<div class="tracker-summary" id="trkSummary"></div>
+<div class="form-group">
+<label>Asignar a un spot (opcional)</label>
+<select id="trkSpotSelect"><option value="">— Ninguno —</option></select>
+</div>
+<div class="form-group">
+<label>Sensación</label>
+<select id="trkFeel"><option value="great">💪 Genial</option><option value="good">😊 Bien</option><option value="ok">😐 Normal</option><option value="hard">😤 Duro</option><option value="bad">😵 Malo</option></select>
+</div>
+<div class="form-group">
+<label>Notas</label>
+<input type="text" id="trkNotes" placeholder="Opcional...">
+</div>
+<button class="btn btn-primary" onclick="saveTrackedRun()" style="width:100%">Guardar carrera</button>
+</div>
+</div>
+ 
 <div class="detail-panel" id="detailPanel">
 <button class="detail-close" onclick="closeDetail()">✕</button>
 <img class="detail-img" id="detailImg" src="" alt="">
@@ -971,7 +1052,293 @@ if ('serviceWorker' in navigator) {
       .catch(err => console.error('Error al registrar el Service Worker', err));
   });
 }
+ 
 
+ 
+// ============ GPS RUN TRACKER ============
+let trkState = 'idle'; // idle, running, paused, finished
+let trkWatchId = null;
+let trkPositions = [];
+let trkDistance = 0;
+let trkStartTime = null;
+let trkElapsed = 0;
+let trkPausedAt = 0;
+let trkInterval = null;
+let trkMap = null;
+let trkPolyline = null;
+ 
+function openTracker() {
+  document.getElementById('trackerOverlay').classList.add('open');
+  if (!trkMap) {
+    trkMap = L.map('trackerMap', {zoomControl: false}).setView([40, -3.7], 6);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '© OSM © CARTO', maxZoom: 19
+    }).addTo(trkMap);
+  }
+  setTimeout(() => trkMap.invalidateSize(), 100);
+  resetTrackerUI();
+}
+ 
+function closeTracker() {
+  if (trkState === 'running') {
+    if (!confirm('¿Seguro? Se perderá la carrera en curso.')) return;
+    stopGPS();
+  }
+  document.getElementById('trackerOverlay').classList.remove('open');
+  trkState = 'idle';
+}
+ 
+function resetTrackerUI() {
+  document.getElementById('trkTime').textContent = '00:00';
+  document.getElementById('trkDist').textContent = '0.00';
+  document.getElementById('trkPace').textContent = '--:--';
+  document.getElementById('gpsStatus').textContent = 'Pulsa ▶ para empezar';
+  document.getElementById('gpsStatus').className = 'gps-status';
+  document.getElementById('trkSave').style.display = 'none';
+  document.getElementById('trkControls').innerHTML = '<button class="ctrl-btn ctrl-start" onclick="startTracking()">▶</button>';
+  document.getElementById('trackerBtn').classList.remove('recording');
+}
+ 
+function startTracking() {
+  if (!navigator.geolocation) {
+    document.getElementById('gpsStatus').textContent = 'Tu navegador no soporta GPS';
+    document.getElementById('gpsStatus').className = 'gps-status error';
+    return;
+  }
+ 
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      trkState = 'running';
+      trkPositions = [];
+      trkDistance = 0;
+      trkStartTime = Date.now();
+      trkPausedAt = 0;
+      document.getElementById('trackerBtn').classList.add('recording');
+      document.getElementById('gpsStatus').textContent = 'GPS activo — corriendo';
+      document.getElementById('gpsStatus').className = 'gps-status active';
+      document.getElementById('trkControls').innerHTML =
+        '<button class="ctrl-btn ctrl-pause" onclick="pauseTracking()">⏸</button>' +
+        '<button class="ctrl-btn ctrl-stop" onclick="stopTracking()">⏹</button>';
+ 
+      if (trkPolyline) trkMap.removeLayer(trkPolyline);
+      trkPolyline = L.polyline([], {color: '#6c5ce7', weight: 4}).addTo(trkMap);
+ 
+      trkMap.setView([pos.coords.latitude, pos.coords.longitude], 16);
+ 
+      trkInterval = setInterval(updateTimer, 1000);
+      startGPS();
+    },
+    (err) => {
+      document.getElementById('gpsStatus').textContent = 'Error GPS: permite la ubicación en tu navegador';
+      document.getElementById('gpsStatus').className = 'gps-status error';
+    },
+    {enableHighAccuracy: true}
+  );
+}
+ 
+function startGPS() {
+  trkWatchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const p = {lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy, t: Date.now()};
+      if (p.acc > 30) return; // ignorar lecturas imprecisas
+      if (trkState !== 'running') return;
+ 
+      if (trkPositions.length > 0) {
+        const last = trkPositions[trkPositions.length - 1];
+        const d = haversine(last.lat, last.lng, p.lat, p.lng);
+        if (d < 0.003) return; // ignorar si no se movió 3m
+        trkDistance += d;
+      }
+ 
+      trkPositions.push(p);
+      trkPolyline.addLatLng([p.lat, p.lng]);
+      trkMap.panTo([p.lat, p.lng]);
+ 
+      document.getElementById('trkDist').textContent = trkDistance.toFixed(2);
+      updatePace();
+    },
+    (err) => {
+      document.getElementById('gpsStatus').textContent = 'Señal GPS perdida...';
+      document.getElementById('gpsStatus').className = 'gps-status error';
+    },
+    {enableHighAccuracy: true, maximumAge: 3000, timeout: 10000}
+  );
+}
+ 
+function stopGPS() {
+  if (trkWatchId !== null) {
+    navigator.geolocation.clearWatch(trkWatchId);
+    trkWatchId = null;
+  }
+  if (trkInterval) {
+    clearInterval(trkInterval);
+    trkInterval = null;
+  }
+}
+ 
+function pauseTracking() {
+  trkState = 'paused';
+  trkPausedAt = Date.now();
+  stopGPS();
+  document.getElementById('gpsStatus').textContent = 'Pausado';
+  document.getElementById('gpsStatus').className = 'gps-status';
+  document.getElementById('trackerBtn').classList.remove('recording');
+  document.getElementById('trkControls').innerHTML =
+    '<button class="ctrl-btn ctrl-resume" onclick="resumeTracking()">▶</button>' +
+    '<button class="ctrl-btn ctrl-stop" onclick="stopTracking()">⏹</button>';
+}
+ 
+function resumeTracking() {
+  trkState = 'running';
+  const pauseDuration = Date.now() - trkPausedAt;
+  trkStartTime += pauseDuration;
+  trkPausedAt = 0;
+  document.getElementById('trackerBtn').classList.add('recording');
+  document.getElementById('gpsStatus').textContent = 'GPS activo — corriendo';
+  document.getElementById('gpsStatus').className = 'gps-status active';
+  document.getElementById('trkControls').innerHTML =
+    '<button class="ctrl-btn ctrl-pause" onclick="pauseTracking()">⏸</button>' +
+    '<button class="ctrl-btn ctrl-stop" onclick="stopTracking()">⏹</button>';
+  trkInterval = setInterval(updateTimer, 1000);
+  startGPS();
+}
+ 
+function stopTracking() {
+  if (trkDistance < 0.01) {
+    alert('No se registró suficiente distancia.');
+    resetTrackerUI();
+    trkState = 'idle';
+    stopGPS();
+    return;
+  }
+  trkState = 'finished';
+  stopGPS();
+  document.getElementById('trackerBtn').classList.remove('recording');
+  document.getElementById('gpsStatus').textContent = 'Carrera finalizada';
+  document.getElementById('gpsStatus').className = 'gps-status';
+  document.getElementById('trkControls').innerHTML = '';
+ 
+  const elapsed = getElapsedSeconds();
+  const pace = trkDistance > 0 ? (elapsed / 60) / trkDistance : 0;
+  const paceMin = Math.floor(pace);
+  const paceSec = Math.round((pace - paceMin) * 60);
+ 
+  document.getElementById('trkSummary').innerHTML = `
+    <div class="stat-box"><div class="val">${trkDistance.toFixed(2)}</div><div class="label">km</div></div>
+    <div class="stat-box"><div class="val">${formatSeconds(elapsed)}</div><div class="label">Tiempo</div></div>
+    <div class="stat-box"><div class="val">${paceMin}:${paceSec.toString().padStart(2,'0')}</div><div class="label">min/km</div></div>
+  `;
+ 
+  // Rellenar selector de spots
+  const select = document.getElementById('trkSpotSelect');
+  select.innerHTML = '<option value="">— Ninguno —</option>';
+  const nearby = findNearbySpots();
+  nearby.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = `${s.name} (${s.city})`;
+    select.appendChild(opt);
+  });
+  if (nearby.length > 0) select.value = nearby[0].id;
+ 
+  document.getElementById('trkSave').style.display = 'block';
+}
+ 
+function saveTrackedRun() {
+  if (!currentUser) return;
+  const elapsed = getElapsedSeconds();
+  const timeStr = formatSeconds(elapsed);
+  const pace = trkDistance > 0 ? (elapsed / 60) / trkDistance : 0;
+  const paceMin = Math.floor(pace);
+  const paceSec = Math.round((pace - paceMin) * 60);
+  const paceStr = `${paceMin}:${paceSec.toString().padStart(2,'0')}`;
+ 
+  const spotId = parseInt(document.getElementById('trkSpotSelect').value) || null;
+  const feel = document.getElementById('trkFeel').value;
+  const notes = document.getElementById('trkNotes').value;
+ 
+  if (spotId) {
+    const runs = getRuns();
+    runs.push({
+      id: Date.now().toString(),
+      spotId: spotId,
+      distance: trkDistance.toFixed(2),
+      time: timeStr,
+      date: new Date().toISOString().split('T')[0],
+      feel: feel,
+      notes: notes || 'GPS tracking',
+      pace: paceStr
+    });
+    saveRuns(runs);
+    updateRunCount();
+  }
+ 
+  document.getElementById('trkSave').style.display = 'none';
+  trkState = 'idle';
+  resetTrackerUI();
+  document.getElementById('trackerOverlay').classList.remove('open');
+  if (spotId) openDetail(spotId);
+}
+ 
+function updateTimer() {
+  const s = getElapsedSeconds();
+  document.getElementById('trkTime').textContent = formatSeconds(s);
+  updatePace();
+}
+ 
+function getElapsedSeconds() {
+  if (trkState === 'paused') return Math.floor((trkPausedAt - trkStartTime) / 1000);
+  if (trkState === 'finished') return Math.floor(((trkPausedAt || Date.now()) - trkStartTime) / 1000);
+  return Math.floor((Date.now() - trkStartTime) / 1000);
+}
+ 
+function updatePace() {
+  const s = getElapsedSeconds();
+  if (trkDistance > 0.05 && s > 10) {
+    const pace = (s / 60) / trkDistance;
+    const pMin = Math.floor(pace);
+    const pSec = Math.round((pace - pMin) * 60);
+    document.getElementById('trkPace').textContent = `${pMin}:${pSec.toString().padStart(2,'0')}`;
+  }
+}
+ 
+function formatSeconds(totalSec) {
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+  return `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+}
+ 
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+ 
+function findNearbySpots() {
+  if (trkPositions.length === 0) return spots.slice(0, 10);
+  const avg = {
+    lat: trkPositions.reduce((s,p) => s+p.lat, 0) / trkPositions.length,
+    lng: trkPositions.reduce((s,p) => s+p.lng, 0) / trkPositions.length
+  };
+  return spots
+    .map(s => ({...s, dist: haversine(avg.lat, avg.lng, s.lat, s.lng)}))
+    .sort((a,b) => a.dist - b.dist)
+    .slice(0, 10);
+}
+ 
+// Show tracker button when logged in
+const origStartApp = startApp;
+startApp = function() {
+  origStartApp();
+  document.getElementById('trackerBtn').style.display = 'block';
+};
+ 
 // ============ INIT ============
 function waitForLeaflet(cb) {
   if (typeof L !== 'undefined') cb();
