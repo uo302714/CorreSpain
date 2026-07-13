@@ -1,4 +1,4 @@
-const CACHE_NAME = 'correspain-v1';
+const CACHE_NAME = 'correspain-v2';
 const ASSETS = [
   './',
   './index.html',
